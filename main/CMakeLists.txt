@@ -1,5 +1,5 @@
-idf_component_register(SRCS "gigr.c"
-                    INCLUDE_DIRS "."
+idf_component_register(SRCS "mpu6050.c" "gigr.c"
+                    INCLUDE_DIRS "." "./include"
                     REQUIRES
                         lvgl
                         esp_driver_gpio
