@@ -1,3 +1,5 @@
 /build
 /utils
 /managed_components
+/.vscode
+sdkconfig.old
