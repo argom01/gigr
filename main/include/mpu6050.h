@@ -4,7 +4,6 @@
 #include "esp_err.h"
 #include "driver/i2c_master.h"
 
-// Struct to hold raw IMU data
 typedef struct {
     int16_t accel_x;
     int16_t accel_y;

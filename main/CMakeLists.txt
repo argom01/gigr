@@ -1,4 +1,4 @@
-idf_component_register(SRCS "mpu6050.c" "gigr.c"
+idf_component_register(SRCS "mpu6050.c" "gigr.c" "lcd_st7796.c"
                     INCLUDE_DIRS "." "./include"
                     REQUIRES
                         lvgl
