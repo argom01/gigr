@@ -6,6 +6,7 @@
 #include "mpu6050.h"
 #include "lcd_st7796.h"
 #include "sample_images.h"
+#include "ble_hid.h"
 
 #define GAUGE_INT_PIN   GPIO_NUM_5
 #define IMU_INT_PIN     GPIO_NUM_46
@@ -48,29 +49,32 @@ void app_main(void) {
     uint16_t white = 0xFFFF;
     uint16_t blue = 0x001F;
 
-    uint16_t *img = malloc(LCD_WIDTH * LCD_HEIGHT * sizeof(uint16_t));
-    for (int i = 0; i < LCD_WIDTH * LCD_HEIGHT; i++) {
-        if (i < LCD_WIDTH * LCD_HEIGHT / 4 && i % LCD_WIDTH < LCD_WIDTH / 2){
-            ((uint16_t *)img)[i] = (blue << 8) | (blue >> 8);
-        } else if (i < LCD_WIDTH * LCD_HEIGHT / 4) {
-            ((uint16_t *)img)[i] = white;
-        } else if (i < 2 * LCD_WIDTH * LCD_HEIGHT / 4) {
-            ((uint16_t *)img)[i] = (red << 8) | (red >> 8);
-        } else if (i < 3 * LCD_WIDTH * LCD_HEIGHT / 4) {
-            ((uint16_t *)img)[i] = (green << 8) | (green >> 8);
-        } else {
-            ((uint16_t *)img)[i] = black;
-        }
-    }
+    // uint16_t *img = malloc(LCD_WIDTH * LCD_HEIGHT * sizeof(uint16_t));
+    // for (int i = 0; i < LCD_WIDTH * LCD_HEIGHT; i++) {
+    //     if (i < LCD_WIDTH * LCD_HEIGHT / 4 && i % LCD_WIDTH < LCD_WIDTH / 2){
+    //         ((uint16_t *)img)[i] = (blue << 8) | (blue >> 8);
+    //     } else if (i < LCD_WIDTH * LCD_HEIGHT / 4) {
+    //         ((uint16_t *)img)[i] = white;
+    //     } else if (i < 2 * LCD_WIDTH * LCD_HEIGHT / 4) {
+    //         ((uint16_t *)img)[i] = (red << 8) | (red >> 8);
+    //     } else if (i < 3 * LCD_WIDTH * LCD_HEIGHT / 4) {
+    //         ((uint16_t *)img)[i] = (green << 8) | (green >> 8);
+    //     } else {
+    //         ((uint16_t *)img)[i] = black;
+    //     }
+    // }
 
-    st7796_show_image(lcd_panel, img);
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    // st7796_show_image(lcd_panel, img);
+    // vTaskDelay(pdMS_TO_TICKS(1000));
 
-    ESP_LOGI(TAG, "Displaying boot images...");
-    for (int i = 0; i < SAMPLE_IMAGE_COUNT; i++) {
-        st7796_show_image(lcd_panel, sample_images[i]);
-        vTaskDelay(pdMS_TO_TICKS(2000));
-    }
+    // ESP_LOGI(TAG, "Displaying boot images...");
+    // for (int i = 0; i < SAMPLE_IMAGE_COUNT; i++) {
+    //     st7796_show_image(lcd_panel, sample_images[i]);
+    //     vTaskDelay(pdMS_TO_TICKS(2000));
+    // }
+
+    ESP_LOGI(TAG, "Initializing BLE HID...");
+    hid_device_init("ESP32S3-HID");
 
     ESP_LOGI(TAG, "Initializing I2C Master Bus...");
     i2c_master_bus_config_t i2c_mst_config = {
@@ -97,11 +101,16 @@ void app_main(void) {
 
     mpu6050_data_t sensor_data;
     while (1) {
-        if (mpu6050_read_data(mpu_handle, &sensor_data) == ESP_OK) {
-            ESP_LOGI(TAG, "Accel [X:%6d Y:%6d Z:%6d] | Gyro [X:%6d Y:%6d Z:%6d]",
-                     sensor_data.accel_x, sensor_data.accel_y, sensor_data.accel_z,
-                     sensor_data.gyro_x, sensor_data.gyro_y, sensor_data.gyro_z);
-        }
+        // if (mpu6050_read_data(mpu_handle, &sensor_data) == ESP_OK) {
+        //     ESP_LOGI(TAG, "Accel [X:%6d Y:%6d Z:%6d] | Gyro [X:%6d Y:%6d Z:%6d]",
+        //              sensor_data.accel_x, sensor_data.accel_y, sensor_data.accel_z,
+        //              sensor_data.gyro_x, sensor_data.gyro_y, sensor_data.gyro_z);
+        // }
+
+        uint8_t key_a = 0x04;
+        hid_keyboard_send(0x00, &key_a, 1);
+        vTaskDelay(pdMS_TO_TICKS(50));
+        hid_keyboard_release();
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
