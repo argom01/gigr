@@ -156,14 +156,6 @@ void hid_keyboard_send(uint8_t modifier, uint8_t *keycodes, uint8_t num_keys)
         return;
     }
 
-    ESP_LOGI(TAG, "Sending keyboard report: modifier=0x%02x, keys=[%d, %d, %d, %d, %d, %d]",
-             modifier,
-             num_keys > 0 ? keycodes[0] : 0,
-             num_keys > 1 ? keycodes[1] : 0,
-             num_keys > 2 ? keycodes[2] : 0,
-             num_keys > 3 ? keycodes[3] : 0,
-             num_keys > 4 ? keycodes[4] : 0,
-             num_keys > 5 ? keycodes[5] : 0);
     esp_hidd_send_keyboard_value(s_conn_id, modifier, keycodes, num_keys);
 }
 
