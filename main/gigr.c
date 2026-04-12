@@ -29,6 +29,12 @@
 
 static const char *TAG = "APP_MAIN";
 
+static inline int8_t clamp_to_int8(float value) {
+    if (value > 127.0f) return 127;
+    if (value < -127.0f) return -127;
+    return (int8_t)value;
+}
+
 void app_main(void) {
     ESP_LOGI(TAG, "Initializing SPI Bus...");
     spi_bus_config_t spi_bus_cfg = {
@@ -107,6 +113,12 @@ void app_main(void) {
     gt911_point_t points[5];
     uint8_t points_read = 0;
 
+    static bool was_touching = false;
+    static uint16_t last_x = 0;
+    static uint16_t last_y = 0;
+
+    const float SENSITIVITY = 0.02f;
+
     while (1) {
         // if (mpu6050_read_data(mpu_handle, &sensor_data) == ESP_OK) {
         //     ESP_LOGI(TAG, "Accel [X:%6d Y:%6d Z:%6d] | Gyro [X:%6d Y:%6d Z:%6d]",
@@ -114,15 +126,43 @@ void app_main(void) {
         //              sensor_data.gyro_x, sensor_data.gyro_y, sensor_data.gyro_z);
         // }
 
-        if (gt911_handle) {
+        if (gt911_handle && hid_device_connected()) {
             if (gt911_read_touches(gt911_handle, points, 5, &points_read) == ESP_OK) {
                 if (points_read > 0) {
-                    ESP_LOGI(TAG, "Touches: %d | Point 0: X=%d, Y=%d",
-                            points_read, points[0].x, points[0].y);
+                    ESP_LOGI(TAG, "Touches: %d | Point 0: X=%d, Y=%d", points_read, points[0].x, points[0].y);
+                }
+
+                if (points_read == 1) {
+                    if (!was_touching) {
+                        was_touching = true;
+                        last_x = points[0].x;
+                        last_y = points[0].y;
+                    } else {
+                        int raw_dx = points[0].x - last_x;
+                        int raw_dy = points[0].y - last_y;
+
+                        if (raw_dx != 0 || raw_dy != 0) {
+
+                            float scaled_dx = (float)raw_dx * SENSITIVITY;
+                            float scaled_dy = (float)raw_dy * SENSITIVITY;
+
+                            hid_touchpad_send(clamp_to_int8(scaled_dx), clamp_to_int8(scaled_dy), 0);
+
+                            last_x = points[0].x;
+                            last_y = points[0].y;
+                        }
+                    }
+                }
+
+                else if (points_read == 0) {
+                    if (was_touching) {
+                        was_touching = false;
+
+                        hid_touchpad_send(0, 0, 0);
+                    }
                 }
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
