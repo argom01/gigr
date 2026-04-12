@@ -5,6 +5,7 @@
 #include "driver/i2c_master.h"
 #include "mpu6050.h"
 #include "lcd_st7796.h"
+#include "gt911.h"
 #include "sample_images.h"
 #include "ble_hid.h"
 
@@ -99,7 +100,13 @@ void app_main(void) {
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_cfg, &mpu_handle));
     ESP_ERROR_CHECK(mpu6050_init(mpu_handle));
 
+    i2c_master_dev_handle_t gt911_handle = gt911_init(bus_handle);
+
     mpu6050_data_t sensor_data;
+
+    gt911_point_t points[5];
+    uint8_t points_read = 0;
+
     while (1) {
         // if (mpu6050_read_data(mpu_handle, &sensor_data) == ESP_OK) {
         //     ESP_LOGI(TAG, "Accel [X:%6d Y:%6d Z:%6d] | Gyro [X:%6d Y:%6d Z:%6d]",
@@ -107,10 +114,15 @@ void app_main(void) {
         //              sensor_data.gyro_x, sensor_data.gyro_y, sensor_data.gyro_z);
         // }
 
-        uint8_t key_a = 0x04;
-        hid_keyboard_send(0x00, &key_a, 1);
-        vTaskDelay(pdMS_TO_TICKS(50));
-        hid_keyboard_release();
+        if (gt911_handle) {
+            if (gt911_read_touches(gt911_handle, points, 5, &points_read) == ESP_OK) {
+                if (points_read > 0) {
+                    ESP_LOGI(TAG, "Touches: %d | Point 0: X=%d, Y=%d",
+                            points_read, points[0].x, points[0].y);
+                }
+            }
+        }
+
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
