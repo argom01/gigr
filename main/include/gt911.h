@@ -22,7 +22,7 @@ typedef struct {
  * @param bus_handle Initialized I2C master bus handle
  * @return i2c_master_dev_handle_t The initialized device handle, or NULL on failure
  */
-i2c_master_dev_handle_t gt911_init(i2c_master_bus_handle_t bus_handle);
+esp_err_t gt911_init(i2c_master_bus_handle_t bus_handle, i2c_master_dev_handle_t *out_handle);
 
 /**
  * @brief Read touch points from the GT911

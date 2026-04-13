@@ -21,8 +21,8 @@ static esp_err_t gt911_write_reg(i2c_master_dev_handle_t handle, uint16_t reg, u
     return i2c_master_transmit(handle, buf, 3, I2C_TIMEOUT_MS);
 }
 
-i2c_master_dev_handle_t gt911_init(i2c_master_bus_handle_t bus_handle) {
-    if (!bus_handle) return NULL;
+esp_err_t gt911_init(i2c_master_bus_handle_t bus_handle, i2c_master_dev_handle_t *out_handle) {
+    if (!bus_handle) return ESP_ERR_INVALID_ARG;
 
     // --- Hardware Reset & Address Selection Sequence ---
     if (GT911_RST_PIN >= 0 && GT911_INT_PIN >= 0) {
@@ -41,10 +41,10 @@ i2c_master_dev_handle_t gt911_init(i2c_master_bus_handle_t bus_handle) {
         vTaskDelay(pdMS_TO_TICKS(10));
 
         // Set INT pin level to dictate the I2C address
-        if (GT911_I2C_ADDR == 0x5D) {
-            gpio_set_level(GT911_INT_PIN, 0);
-        } else {
+        if (GT911_I2C_ADDR == 0x14) {
             gpio_set_level(GT911_INT_PIN, 1);
+        } else {
+            gpio_set_level(GT911_INT_PIN, 0);
         }
 
         esp_rom_delay_us(500);
@@ -57,29 +57,25 @@ i2c_master_dev_handle_t gt911_init(i2c_master_bus_handle_t bus_handle) {
     }
 
     // --- I2C Initialization ---
-    i2c_master_dev_handle_t dev_handle = NULL;
     i2c_device_config_t dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = GT911_I2C_ADDR,
         .scl_speed_hz = 400000,
     };
 
-    esp_err_t err = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to add GT911 to I2C bus");
-        return NULL;
+    esp_err_t err = i2c_master_bus_add_device(bus_handle, &dev_cfg, out_handle);
+    if (err != ESP_OK) return err;
+
+    // Verify communication by reading the Chip ID ("911")
+    uint8_t id[4] = {0};
+    err = gt911_read_reg(*out_handle, GT911_REG_CHIP_ID, id, 3);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "GT911 initialized successfully. Chip ID: %c%c%c", id[0], id[1], id[2]);
+    } else {
+        ESP_LOGE(TAG, "Failed to read GT911 Chip ID. Check wiring or I2C address.");
     }
 
-    uint8_t id[4] = {0};
-    err = gt911_read_reg(dev_handle, GT911_REG_CHIP_ID, id, 3);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "GT911 initialized at 0x%02X. Chip ID: %c%c%c", GT911_I2C_ADDR, id[0], id[1], id[2]);
-        return dev_handle;
-    } else {
-        ESP_LOGE(TAG, "Failed to read GT911 Chip ID at 0x%02X.", GT911_I2C_ADDR);
-        i2c_master_bus_rm_device(dev_handle);
-        return NULL;
-    }
+    return err;
 }
 
 esp_err_t gt911_read_touches(i2c_master_dev_handle_t handle, gt911_point_t *points, uint8_t max_points, uint8_t *points_read) {

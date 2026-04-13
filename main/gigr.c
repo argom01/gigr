@@ -25,8 +25,6 @@
 #define MISO_PIN        GPIO_NUM_13
 #define LED_PIN         GPIO_NUM_40
 
-#define MPU6050_I2C_ADDR 0x68
-
 static const char *TAG = "APP_MAIN";
 
 static inline int8_t clamp_to_int8(float value) {
@@ -36,6 +34,7 @@ static inline int8_t clamp_to_int8(float value) {
 }
 
 void app_main(void) {
+    // Initialize buses
     ESP_LOGI(TAG, "Initializing SPI Bus...");
     spi_bus_config_t spi_bus_cfg = {
         .sclk_io_num = SCK_PIN,
@@ -47,42 +46,6 @@ void app_main(void) {
     };
     ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &spi_bus_cfg, SPI_DMA_CH_AUTO));
 
-    ESP_LOGI(TAG, "Initializing ST7796 LCD...");
-    esp_lcd_panel_handle_t lcd_panel = st7796_init(SPI2_HOST);
-
-    uint16_t red = 0xF800;
-    uint16_t green = 0x07E0;
-    uint16_t black = 0x0000;
-    uint16_t white = 0xFFFF;
-    uint16_t blue = 0x001F;
-
-    // uint16_t *img = malloc(LCD_WIDTH * LCD_HEIGHT * sizeof(uint16_t));
-    // for (int i = 0; i < LCD_WIDTH * LCD_HEIGHT; i++) {
-    //     if (i < LCD_WIDTH * LCD_HEIGHT / 4 && i % LCD_WIDTH < LCD_WIDTH / 2){
-    //         ((uint16_t *)img)[i] = (blue << 8) | (blue >> 8);
-    //     } else if (i < LCD_WIDTH * LCD_HEIGHT / 4) {
-    //         ((uint16_t *)img)[i] = white;
-    //     } else if (i < 2 * LCD_WIDTH * LCD_HEIGHT / 4) {
-    //         ((uint16_t *)img)[i] = (red << 8) | (red >> 8);
-    //     } else if (i < 3 * LCD_WIDTH * LCD_HEIGHT / 4) {
-    //         ((uint16_t *)img)[i] = (green << 8) | (green >> 8);
-    //     } else {
-    //         ((uint16_t *)img)[i] = black;
-    //     }
-    // }
-
-    // st7796_show_image(lcd_panel, img);
-    // vTaskDelay(pdMS_TO_TICKS(1000));
-
-    // ESP_LOGI(TAG, "Displaying boot images...");
-    // for (int i = 0; i < SAMPLE_IMAGE_COUNT; i++) {
-    //     st7796_show_image(lcd_panel, sample_images[i]);
-    //     vTaskDelay(pdMS_TO_TICKS(2000));
-    // }
-
-    ESP_LOGI(TAG, "Initializing BLE HID...");
-    hid_device_init("ESP32S3-HID");
-
     ESP_LOGI(TAG, "Initializing I2C Master Bus...");
     i2c_master_bus_config_t i2c_mst_config = {
         .clk_source = I2C_CLK_SRC_DEFAULT,
@@ -93,20 +56,27 @@ void app_main(void) {
         .flags.enable_internal_pullup = true,
     };
 
-    i2c_master_bus_handle_t bus_handle;
-    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_mst_config, &bus_handle));
+    i2c_master_bus_handle_t i2c_bus_handle;
+    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_mst_config, &i2c_bus_handle));
 
-    i2c_device_config_t dev_cfg = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = MPU6050_I2C_ADDR,
-        .scl_speed_hz = 400000,
-    };
+    // Initialize devices
+
+    ESP_LOGI(TAG, "Initializing ST7796 LCD...");
+    esp_lcd_panel_handle_t lcd_panel = st7796_init(SPI2_HOST);
+
+    st7796_show_image(lcd_panel, sample_images[0]);
 
     i2c_master_dev_handle_t mpu_handle;
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_cfg, &mpu_handle));
-    ESP_ERROR_CHECK(mpu6050_init(mpu_handle));
+    ESP_ERROR_CHECK(mpu6050_init(i2c_bus_handle, &mpu_handle));
 
-    i2c_master_dev_handle_t gt911_handle = gt911_init(bus_handle);
+    i2c_master_dev_handle_t gt911_handle;
+    ESP_ERROR_CHECK(gt911_init(i2c_bus_handle, &gt911_handle));
+
+    // Initialize BLE HID
+
+    ESP_LOGI(TAG, "Initializing BLE HID...");
+    hid_device_init("ESP32S3-HID");
+
 
     mpu6050_data_t sensor_data;
 

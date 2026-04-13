@@ -19,7 +19,7 @@ typedef struct {
  * * @param dev_handle I2C device handle
  * @return esp_err_t ESP_OK on success
  */
-esp_err_t mpu6050_init(i2c_master_dev_handle_t dev_handle);
+esp_err_t mpu6050_init(i2c_master_bus_handle_t bus_handle, i2c_master_dev_handle_t *dev_handle);
 
 /**
  * @brief Reads 14 bytes of accel, temp, and gyro data
