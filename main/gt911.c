@@ -1,7 +1,10 @@
 #include "gt911.h"
 #include "esp_log.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
+
 #include "esp_rom_sys.h"
 
 static const char *TAG = "GT911";
@@ -10,6 +13,66 @@ static const char *TAG = "GT911";
 #define GT911_REG_STATUS   0x814E
 #define GT911_REG_COORD    0x814F
 #define I2C_TIMEOUT_MS     100
+
+static SemaphoreHandle_t s_touch_sem  = NULL;
+static gt911_touch_cb_t s_touch_cb = NULL;
+static i2c_master_dev_handle_t s_dev_handle = NULL;
+
+static void IRAM_ATTR gt911_isr_handler(void *arg) {
+    BaseType_t high_task_wakeup = pdFALSE;
+    xSemaphoreGiveFromISR(s_touch_sem, &high_task_wakeup);
+    if (high_task_wakeup) {
+        portYIELD_FROM_ISR();
+    }
+}
+
+static void gt911_touch_task(void *pvParameters) {
+    gt911_point_t points[5];
+    uint8_t points_read = 0;
+
+    while (1) {
+        if (xSemaphoreTake(s_touch_sem, portMAX_DELAY) == pdTRUE) {
+            if (gt911_read_touches(s_dev_handle, points, 5, &points_read) == ESP_OK) {
+                if (points_read > 0 && s_touch_cb) {
+                    if (s_touch_cb) {
+                        s_touch_cb(points, points_read);
+                    }
+                }
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(2));
+        }
+    }
+}
+
+esp_err_t gt911_start_interrupt_task(i2c_master_dev_handle_t handle, gt911_touch_cb_t callback) {
+    if (!handle || !callback) return ESP_ERR_INVALID_ARG;
+
+    s_dev_handle = handle;
+    s_touch_cb = callback;
+
+    s_touch_sem = xSemaphoreCreateBinary();
+    if (!s_touch_sem) {
+        ESP_LOGE(TAG, "Failed to create touch semaphore");
+        return ESP_ERR_NO_MEM;
+    }
+
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << GT911_INT_PIN),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_NEGEDGE
+    };
+    gpio_config(&io_conf);
+
+    xTaskCreatePinnedToCore(gt911_touch_task, "gt911_touch_task", 4096, NULL, 10, NULL, 1);
+
+    gpio_isr_handler_add(GT911_INT_PIN, gt911_isr_handler, NULL);
+    ESP_LOGI(TAG, "Hardware interrupt task started on pin %d", GT911_INT_PIN);
+
+    return ESP_OK;
+}
 
 static esp_err_t gt911_read_reg(i2c_master_dev_handle_t handle, uint16_t reg, uint8_t *data, size_t len) {
     uint8_t reg_buf[2] = { reg >> 8, reg & 0xFF };

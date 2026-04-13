@@ -17,6 +17,8 @@ typedef struct {
     uint16_t size;
 } gt911_point_t;
 
+typedef void (*gt911_touch_cb_t)(gt911_point_t *points, uint8_t count);
+
 /**
  * @brief Initialize the GT911 Touch Controller using default settings
  * @param bus_handle Initialized I2C master bus handle
@@ -33,5 +35,13 @@ esp_err_t gt911_init(i2c_master_bus_handle_t bus_handle, i2c_master_dev_handle_t
  * @return esp_err_t ESP_OK on success
  */
 esp_err_t gt911_read_touches(i2c_master_dev_handle_t handle, gt911_point_t *points, uint8_t max_points, uint8_t *points_read);
+
+/**
+ * @brief Starts the background FreeRTOS task and attaches the hardware interrupt
+ * @param handle The I2C device handle
+ * @param callback The function in main.c to call when a touch occurs
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t gt911_start_interrupt_task(i2c_master_dev_handle_t handle, gt911_touch_cb_t callback);
 
 #endif // GT911_H
