@@ -27,6 +27,29 @@ typedef void (*gt911_touch_cb_t)(gt911_point_t *points, uint8_t count);
 esp_err_t gt911_init(i2c_master_bus_handle_t bus_handle, i2c_master_dev_handle_t *out_handle);
 
 /**
+ * @brief Read the entire GT911 configuration RAM into a buffer
+ * @param handle The I2C device handle
+ * @param config_data Pointer to a 186-byte array to store the configuration
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t gt911_read_config(i2c_master_dev_handle_t handle, uint8_t *config_data);
+
+/**
+ * @brief Calculate the checksum and write the modified configuration back to RAM
+ * @param handle The I2C device handle
+ * @param config_data Pointer to the modified 186-byte array
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t gt911_write_config(i2c_master_dev_handle_t handle, uint8_t *config_data);
+
+/**
+ * @brief Send the "Fresh" flag to force the GT911 to soft-reset and apply the new config
+ * @param handle The I2C device handle
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t gt911_apply_config(i2c_master_dev_handle_t handle);
+
+/**
  * @brief Read touch points from the GT911
  * @param handle The raw I2C device handle returned by gt911_init
  * @param points Array of gt911_point_t to store the data

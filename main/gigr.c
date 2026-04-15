@@ -1,13 +1,17 @@
 #include <stdio.h>
+#include "esp_log.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
+#include "esp_timer.h"
+
 #include "driver/i2c_master.h"
-#include "mpu6050.h"
 #include "lcd_st7796.h"
+#include "ble_hid.h"
+
+#include "mpu6050.h"
 #include "gt911.h"
 #include "sample_images.h"
-#include "ble_hid.h"
 
 #define GAUGE_INT_PIN   GPIO_NUM_5
 #define IMU_INT_PIN     GPIO_NUM_46
@@ -25,11 +29,24 @@
 #define MISO_PIN        GPIO_NUM_13
 #define LED_PIN         GPIO_NUM_40
 
+#define DRAG_THRESHOLD_PX 5
+#define TAP_TIMEOUT_MS 250
+
+#define BTN_LEFT   0x01
+#define BTN_RIGHT  0x02
+#define BTN_MIDDLE 0x04
+
 static const char *TAG = "APP_MAIN";
 
 static bool was_touching = false;
+static bool is_dragging = false;
+static uint16_t start_x = 0;
+static uint16_t start_y = 0;
 static uint16_t last_x = 0;
 static uint16_t last_y = 0;
+static uint32_t touch_start_time = 0;
+static uint8_t max_fingers_seen = 0;
+
 const float SENSITIVITY = 0.02f;
 
 static inline int8_t clamp_to_int8(float value) {
@@ -39,31 +56,75 @@ static inline int8_t clamp_to_int8(float value) {
 }
 
 void touch_event(gt911_point_t *points, uint8_t points_read) {
-    if (points_read == 1) {
+    uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
+    //ESP_LOGI(TAG, "Touch event: %d point(s)", points_read);
+
+    if (points_read > 0) {
+        if (points_read > max_fingers_seen) {
+            max_fingers_seen = points_read;
+        }
+
         if (!was_touching) {
+            // ESP_LOGI(TAG, "Touch started with %d point(s)", points_read);
             was_touching = true;
+            is_dragging = false;
+            touch_start_time = now_ms;
+
+            start_x = points[0].x;
+            start_y = points[0].y;
             last_x = points[0].x;
             last_y = points[0].y;
+
         } else {
-            int raw_dx = points[0].x - last_x;
-            int raw_dy = points[0].y - last_y;
+            if (!is_dragging) {
+                int dx_from_start = abs(points[0].x - start_x);
+                int dy_from_start = abs(points[0].y - start_y);
 
-            if (raw_dx != 0 || raw_dy != 0) {
-                float scaled_dx = (float)raw_dx * SENSITIVITY;
-                float scaled_dy = (float)raw_dy * SENSITIVITY;
+                if (dx_from_start > DRAG_THRESHOLD_PX || dy_from_start > DRAG_THRESHOLD_PX) {
+                    is_dragging = true;
 
-                // Call your BLE function
-                hid_touchpad_send(clamp_to_int8(scaled_dx), clamp_to_int8(scaled_dy), 0);
+                    last_x = points[0].x;
+                    last_y = points[0].y;
+                }
+            }
 
-                last_x = points[0].x;
-                last_y = points[0].y;
+            if (is_dragging && points_read == 1) {
+                int raw_dx = points[0].x - last_x;
+                int raw_dy = points[0].y - last_y;
+
+                if (raw_dx != 0 || raw_dy != 0) {
+                    float scaled_dx = (float)raw_dx * SENSITIVITY;
+                    float scaled_dy = (float)raw_dy * SENSITIVITY;
+
+                    hid_touchpad_send(clamp_to_int8(scaled_dx), clamp_to_int8(scaled_dy), 0);
+
+                    last_x = points[0].x;
+                    last_y = points[0].y;
+                }
             }
         }
     }
     else if (points_read == 0) {
         if (was_touching) {
             was_touching = false;
-            hid_touchpad_send(0, 0, 0); // Stop movement
+
+            if (!is_dragging && (now_ms - touch_start_time) < TAP_TIMEOUT_MS) {
+                // ESP_LOGI(TAG, "Tap detected with %d point(s), time: %d ms", max_fingers_seen, now_ms - touch_start_time);
+
+                uint8_t btn_mask = 0;
+                // if (max_fingers_seen == 1) btn_mask = BTN_LEFT;
+                // else if (max_fingers_seen == 2) btn_mask = BTN_RIGHT;
+                // else if (max_fingers_seen >= 3) btn_mask = BTN_MIDDLE;
+
+                hid_touchpad_send(0, 0, btn_mask);
+
+                vTaskDelay(pdMS_TO_TICKS(20));
+            }
+
+            hid_touchpad_send(0, 0, 0);
+
+            max_fingers_seen = 0;
+            is_dragging = false;
         }
     }
 }
@@ -112,6 +173,37 @@ void app_main(void) {
     i2c_master_dev_handle_t gt911_handle;
     ESP_ERROR_CHECK(gt911_init(i2c_bus_handle, &gt911_handle));
 
+    // if (gt911_handle) {
+
+    //     uint8_t config[186];
+
+    //     if (gt911_read_config(gt911_handle, config) == ESP_OK) {
+    //         ESP_LOGI(TAG, "Initial config version: %d, checksum: %d, fresh: %d", config[0], config[185], config[186]);
+    //         // config[0] = 0;
+    //         // config[0] = (config[0] + 1) & 0xFF;
+
+    //         // config[1] = 320 & 0xFF;
+    //         // config[2] = (320 >> 8) & 0xFF;
+    //         // config[3] = 480 & 0xFF;
+    //         // config[4] = (480 >> 8) & 0xFF;
+
+    //         // config[6] = (3U << 4) | (0b1101) | (1U << 7);
+
+    //         // config[8] = (1U << 6) | 0x02;
+    //         // config[11] = 15;
+    //         // config[12] = 100;
+    //         // config[13] = 10;
+
+    //         // config[15] = 0;
+
+    //         gt911_write_config(gt911_handle, config);
+
+    //         gt911_apply_config(gt911_handle);
+
+    //         ESP_LOGI(TAG, "Custom configuration applied successfully!");
+    //     }
+    // }
+
     // Initialize BLE HID
 
     ESP_LOGI(TAG, "Initializing BLE HID...");
@@ -120,6 +212,15 @@ void app_main(void) {
     gt911_start_interrupt_task(gt911_handle, touch_event);
 
     mpu6050_data_t sensor_data;
+    uint8_t config[186];
+
+    gt911_read_config(gt911_handle, config);
+    ESP_LOGI(TAG, "Current config version: %d", config[0]);
+    ESP_LOGI(TAG, "dejitter: %d, threshold touch: %d, threshold release: %d", config[8], config[12], config[13]);
+    ESP_LOGI(TAG, "res_x: %d, res_y: %d", (config[2] << 8) | config[1], (config[4] << 8) | config[3]);
+    ESP_LOGI(TAG, "noise: %x", config[11]);
+    ESP_LOGI(TAG, "m_sw: %x", config[6]);
+    ESP_LOGI(TAG, "refresh: %d", config[15]);
 
     while (1) {
         // if (mpu6050_read_data(mpu_handle, &sensor_data) == ESP_OK) {
@@ -128,6 +229,8 @@ void app_main(void) {
         //              sensor_data.gyro_x, sensor_data.gyro_y, sensor_data.gyro_z);
         // }
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        vTaskDelay(pdMS_TO_TICKS(500));
+
     }
 }
