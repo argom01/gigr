@@ -1,0 +1,6 @@
+[submodule "components/mpu6500"]
+	path = components/mpu6500
+	url = git@github.com:libdriver/mpu6500.git
+[submodule "components/lvgl"]
+	path = components/lvgl
+	url = git@github.com:lvgl/lvgl.git
