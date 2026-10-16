@@ -106,6 +106,9 @@ typedef struct {
     uint32_t infer_us;
     uint32_t fired;
     bool model_stub;
+    bool model_mismatch;        // window/axes of the model differ from the firmware
+    uint8_t profile;            // effective host profile
+    uint8_t matched_labels;     // model labels found in the dictionary
 } app_gesture_state_t;
 
 typedef struct {

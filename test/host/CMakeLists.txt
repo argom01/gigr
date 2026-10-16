@@ -13,6 +13,8 @@ include_directories(
     ${ROOT}/components/sensors/include
     ${ROOT}/components/display/include
     ${ROOT}/components/airmouse/include
+    ${ROOT}/components/gesture/include
+    ${ROOT}/components/ble_hid/include
     ${CMAKE_CURRENT_LIST_DIR}
 )
 
@@ -35,6 +37,13 @@ add_library(touchpad STATIC ${ROOT}/components/display/touchpad.c)
 add_library(airmouse STATIC ${ROOT}/components/airmouse/airmouse.c)
 target_link_libraries(airmouse fusion m)
 
+add_library(gesture_pure STATIC
+    ${ROOT}/components/gesture/gesture_defs.c
+    ${ROOT}/components/gesture/postproc.c
+    ${ROOT}/components/gesture/profiles.c
+    ${ROOT}/components/gesture/frame_ring.c
+)
+
 enable_testing()
 
 function(host_test name)
@@ -48,3 +57,4 @@ host_test(test_flex sensors_pure)
 host_test(test_battery sensors_pure)
 host_test(test_touchpad touchpad)
 host_test(test_airmouse airmouse fusion)
+host_test(test_gesture gesture_pure)

@@ -72,6 +72,8 @@ void scr_imu_create(lv_obj_t *tab);
 void scr_imu_update(const app_state_t *st);
 void scr_flex_create(lv_obj_t *tab);
 void scr_flex_update(const app_state_t *st);
+void scr_gesture_create(lv_obj_t *tab);
+void scr_gesture_update(const app_state_t *st);
 void scr_airmouse_create(lv_obj_t *tab);
 void scr_airmouse_update(const app_state_t *st);
 void scr_touchpad_create(lv_obj_t *tab);

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "esp_timer.h"
+#include "gesture.h"
 #include "gui_priv.h"
 
 static const char *const s_hw_names[HW_COUNT] = {
@@ -71,7 +72,7 @@ void scr_home_update(const app_state_t *st)
 
     if (st->gesture.last_id >= 0) {
         const float age = (float)(esp_timer_get_time() - st->gesture.last_t_us) / 1e6f;
-        lv_label_set_text_fmt(s_gesture, "Last gesture: #%d  p=%.2f  %.1f s ago", st->gesture.last_id,
+        lv_label_set_text_fmt(s_gesture, "Last gesture: %s  p=%.2f  %.1f s ago", gesture_name(st->gesture.last_id),
                               (double)st->gesture.last_prob, (double)age);
     } else {
         lv_label_set_text(s_gesture, st->gesture.model_stub ? "Gesture model: stub (no trained model)" : "No gesture yet");

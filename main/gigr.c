@@ -5,6 +5,7 @@
 #include "board_io.h"
 #include "display.h"
 #include "flex_adc.h"
+#include "gesture_task.h"
 #include "gui.h"
 #include "i2c_bus.h"
 #include "imu.h"
@@ -69,6 +70,7 @@ void app_main(void)
         app_hw_set(HW_BLE, HW_MISSING);
     }
 
+    ESP_ERROR_CHECK(gesture_start());
     ESP_ERROR_CHECK(sensor_task_start());
     ESP_ERROR_CHECK(sysmon_start());
 

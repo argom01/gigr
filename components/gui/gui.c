@@ -14,6 +14,7 @@ static const gui_screen_t s_screens[] = {
     { LV_SYMBOL_EYE_OPEN " Sens", scr_sensors_create, scr_sensors_update },
     { LV_SYMBOL_GPS " IMU", scr_imu_create, scr_imu_update },
     { LV_SYMBOL_EDIT " Flex", scr_flex_create, scr_flex_update },
+    { LV_SYMBOL_LOOP " Gest", scr_gesture_create, scr_gesture_update },
     { LV_SYMBOL_SHUFFLE " Mouse", scr_airmouse_create, scr_airmouse_update },
     { LV_SYMBOL_KEYBOARD " Pad", scr_touchpad_create, NULL },
     { LV_SYMBOL_SETTINGS " Sys", scr_system_create, scr_system_update },

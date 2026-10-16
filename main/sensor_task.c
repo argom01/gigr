@@ -14,6 +14,8 @@
 #include "flex_cal.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "gesture.h"
+#include "gesture_task.h"
 #include "gyro_bias.h"
 #include "hid_tx.h"
 #include "imu.h"
@@ -64,6 +66,10 @@ typedef struct {
     airmouse_t am;
     app_airmouse_state_t am_state;
     uint8_t am_sent_buttons;
+
+    // gesture input frames (200 Hz -> 100 Hz by averaging pairs)
+    float frame_sum[GESTURE_AXES];
+    int frame_n;
 
     // battery
     battery_est_t bat;
@@ -358,7 +364,6 @@ static void sensor_task(void *arg)
     sensor_ctx_t *c = arg;
     app_sensor_state_t st = { 0 };
     TickType_t wake = xTaskGetTickCount();
-    uint32_t tick = 0;
 
     for (;;) {
         vTaskDelayUntil(&wake, pdMS_TO_TICKS(PERIOD_MS));
@@ -366,7 +371,6 @@ static void sensor_task(void *arg)
         const float dt = c->last_us ? (float)(now - c->last_us) * 1e-6f : DT_NOMINAL;
         update_stats(c, &st, now);
         reload_settings(c);
-        tick++;
 
         // ── IMU ──
         if (c->imu_ok) {
@@ -434,6 +438,23 @@ static void sensor_task(void *arg)
 
         if (c->imu_ok && c->flex_ok) {
             airmouse_tick(c, &st, dt);
+        }
+
+        // ── 100 Hz frames for the classifier and the data capture ──
+        if (c->imu_ok || c->flex_ok) {
+            float frame[GESTURE_AXES];
+            gesture_frame_build(st.accel_g, st.gyro_dps, st.flex_norm, frame);
+            for (int i = 0; i < GESTURE_AXES; i++) {
+                c->frame_sum[i] += frame[i];
+            }
+            if (++c->frame_n == IMU_SAMPLE_HZ / GESTURE_SAMPLE_HZ) {
+                for (int i = 0; i < GESTURE_AXES; i++) {
+                    frame[i] = c->frame_sum[i] / (float)c->frame_n;
+                    c->frame_sum[i] = 0.0f;
+                }
+                c->frame_n = 0;
+                gesture_feed(frame);
+            }
         }
 
         st.t_us = now;
