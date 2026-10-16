@@ -12,6 +12,7 @@ include_directories(
     ${ROOT}/components/fusion/include
     ${ROOT}/components/sensors/include
     ${ROOT}/components/display/include
+    ${ROOT}/components/airmouse/include
     ${CMAKE_CURRENT_LIST_DIR}
 )
 
@@ -31,6 +32,9 @@ target_link_libraries(sensors_pure m)
 
 add_library(touchpad STATIC ${ROOT}/components/display/touchpad.c)
 
+add_library(airmouse STATIC ${ROOT}/components/airmouse/airmouse.c)
+target_link_libraries(airmouse fusion m)
+
 enable_testing()
 
 function(host_test name)
@@ -43,3 +47,4 @@ host_test(test_fusion fusion)
 host_test(test_flex sensors_pure)
 host_test(test_battery sensors_pure)
 host_test(test_touchpad touchpad)
+host_test(test_airmouse airmouse fusion)

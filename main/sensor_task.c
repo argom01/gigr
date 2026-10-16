@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <string.h>
+#include "airmouse.h"
 #include "app_req.h"
 #include "app_state.h"
 #include "battery.h"
@@ -14,6 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "gyro_bias.h"
+#include "hid_tx.h"
 #include "imu.h"
 #include "mahony.h"
 #include "quat.h"
@@ -58,6 +60,11 @@ typedef struct {
     float pending_open[FINGER_COUNT];
     float pending_closed[FINGER_COUNT];
 
+    // air mouse
+    airmouse_t am;
+    app_airmouse_state_t am_state;
+    uint8_t am_sent_buttons;
+
     // battery
     battery_est_t bat;
     float bat_sum;
@@ -74,6 +81,24 @@ static sensor_ctx_t s_ctx;
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
+static void airmouse_params_from_settings(const settings_t *cfg, airmouse_params_t *p)
+{
+    airmouse_params_default(p);
+    p->x_source = cfg->am_x_source;
+    p->invert_x = cfg->am_invert_x;
+    p->invert_y = cfg->am_invert_y;
+    p->gain_min = cfg->am_gain_min;
+    p->gain_max = cfg->am_gain_max;
+    p->v1_dps = cfg->am_v1_dps;
+    p->v2_dps = cfg->am_v2_dps > cfg->am_v1_dps + 1.0f ? cfg->am_v2_dps : cfg->am_v1_dps + 1.0f;
+    p->mincutoff_hz = cfg->am_mincutoff_hz;
+    p->beta = cfg->am_beta;
+    p->deadzone_dps = cfg->am_deadzone_dps;
+    p->press_th = cfg->am_press_th;
+    p->release_th = cfg->am_release_th < cfg->am_press_th ? cfg->am_release_th : cfg->am_press_th - 0.05f;
+    p->scroll_gain = cfg->am_scroll_gain;
+}
+
 static void reload_settings(sensor_ctx_t *c)
 {
     if (settings_version() == c->cfg_version) {
@@ -81,6 +106,61 @@ static void reload_settings(sensor_ctx_t *c)
     }
     c->cfg_version = settings_version();
     settings_get(&c->cfg);
+    airmouse_params_t p;
+    airmouse_params_from_settings(&c->cfg, &p);
+    airmouse_set_params(&c->am, &p);
+}
+
+// ── Air mouse ────────────────────────────────────────────────────────────────
+
+#define TEST_PAD_W 1920
+#define TEST_PAD_H 1080
+
+static void airmouse_tick(sensor_ctx_t *c, const app_sensor_state_t *st, float dt)
+{
+    const app_mode_t mode = app_mode_get();
+    // never enter with an uncalibrated glove: random bends would click
+    const bool allowed = c->cfg.am_enabled && c->cfg.flex_cal_valid && c->imu_ok && c->flex_ok &&
+                         (mode == APP_MODE_GESTURE || mode == APP_MODE_AIRMOUSE);
+
+    airmouse_out_t o;
+    airmouse_step(&c->am, allowed, st->flex_norm, st->gyro_dps, st->up, dt, &o);
+
+    if (o.entered && mode == APP_MODE_GESTURE) {
+        app_mode_set(APP_MODE_AIRMOUSE);
+    }
+    if (o.exited && app_mode_get() == APP_MODE_AIRMOUSE) {
+        app_mode_set(APP_MODE_GESTURE);
+    }
+
+    if (o.active) {
+        if (o.dx || o.dy || o.wheel || o.pan) {
+            hid_tx_mouse_move(o.dx, o.dy, o.wheel, o.pan);
+        }
+        app_activity_kick();
+    }
+    if (o.buttons != c->am_sent_buttons) {
+        hid_tx_mouse_buttons(o.buttons);
+        c->am_sent_buttons = o.buttons;
+    }
+
+    app_airmouse_state_t *a = &c->am_state;
+    if (app_req_take(REQ_TEST_CURSOR_RESET) || (a->test_x == 0 && a->test_y == 0)) {
+        a->test_x = TEST_PAD_W / 2;
+        a->test_y = TEST_PAD_H / 2;
+    }
+    a->test_x += o.dx;
+    a->test_y += o.dy;
+    a->test_x = a->test_x < 1 ? 1 : (a->test_x >= TEST_PAD_W ? TEST_PAD_W - 1 : a->test_x);
+    a->test_y = a->test_y < 1 ? 1 : (a->test_y >= TEST_PAD_H ? TEST_PAD_H - 1 : a->test_y);
+    a->active = o.active;
+    a->settling = o.settling;
+    a->frozen = o.frozen;
+    a->scrolling = o.scrolling;
+    a->buttons = o.buttons;
+    a->speed_dps = o.speed_dps;
+    a->gain = o.gain;
+    APP_STATE_PUT(airmouse, a);
 }
 
 static void save_settings(sensor_ctx_t *c)
@@ -352,6 +432,10 @@ static void sensor_task(void *arg)
             APP_STATE_PUT(flexcal, &c->fc);
         }
 
+        if (c->imu_ok && c->flex_ok) {
+            airmouse_tick(c, &st, dt);
+        }
+
         st.t_us = now;
         st.loop_us = (float)(esp_timer_get_time() - now);
         APP_STATE_PUT(sensor, &st);
@@ -376,6 +460,9 @@ esp_err_t sensor_task_start(void)
         gyro_bias_set(&c->bias, c->cfg.gyro_bias_dps);
     }
     mahony_init(&c->ahrs, FUSION_KP, FUSION_KI);
+    airmouse_params_t amp;
+    airmouse_params_from_settings(&c->cfg, &amp);
+    airmouse_init(&c->am, &amp);
     memcpy(c->pending_open, c->cfg.flex_open_mv, sizeof(c->pending_open));
     memcpy(c->pending_closed, c->cfg.flex_closed_mv, sizeof(c->pending_closed));
 

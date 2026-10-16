@@ -8,6 +8,7 @@ idf_component_register(SRCS "gigr.c" "sysmon.c" "sensor_task.c" "touchpad_mode.c
                         sensors
                         fusion
                         ble_hid
+                        airmouse
                     PRIV_REQUIRES
                         nvs_flash
                         esp_timer
