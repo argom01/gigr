@@ -80,7 +80,7 @@ esp_err_t display_init(void)
     if (pool) {
         lv_mem_add_pool(pool, LVGL_PSRAM_POOL_KB * 1024);
     } else {
-        ESP_LOGW(TAG, "no PSRAM pool for LVGL, using the internal %d kB only", CONFIG_LV_MEM_SIZE_KILOBYTES);
+        ESP_LOGW(TAG, "no PSRAM pool for LVGL, using the internal %d kB only", LV_MEM_SIZE / 1024);
     }
 
     s_disp = lv_display_create(LCD_H_RES, LCD_V_RES);

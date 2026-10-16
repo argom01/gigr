@@ -5,10 +5,12 @@
 #include "app_state.h"
 #include "board_config.h"
 #include "ei_glue.h"
+#include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "frame_ring.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/task.h"
 #include "hid_tx.h"
 #include "postproc.h"
@@ -26,7 +28,7 @@ static TaskHandle_t s_task;
 static atomic_int s_test_fire = -1;
 static gesture_frame_cb_t s_frame_cb;
 
-static float s_window[WINDOW_VALUES];
+EXT_RAM_BSS_ATTR static float s_window[WINDOW_VALUES];
 static float s_model_scores[32];
 static int8_t s_label_map[32];      // model output -> dictionary id
 static int s_model_labels;
@@ -277,7 +279,9 @@ esp_err_t gesture_start(void)
     app_hw_set(HW_MODEL, s_model_ok ? HW_OK : HW_MISSING);
     APP_STATE_PUT(gesture, &s_state);
 
-    const BaseType_t ok = xTaskCreatePinnedToCore(gesture_task, "infer", TASK_STACK_INFER, NULL, TASK_PRIO_INFER,
-                                                  &s_task, TASK_CORE_INFER);
+    // stack in PSRAM: this task never touches flash
+    const BaseType_t ok = xTaskCreatePinnedToCoreWithCaps(gesture_task, "infer", TASK_STACK_INFER, NULL,
+                                                          TASK_PRIO_INFER, &s_task, TASK_CORE_INFER,
+                                                          MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     return ok == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }

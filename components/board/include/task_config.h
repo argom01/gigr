@@ -27,7 +27,7 @@
 
 #define TASK_CORE_INFER         1
 #define TASK_PRIO_INFER         10
-#define TASK_STACK_INFER        8192
+#define TASK_STACK_INFER        12288   // Edge Impulse run_classifier needs room
 
 #define TASK_CORE_CAPTURE       1
 #define TASK_PRIO_CAPTURE       8

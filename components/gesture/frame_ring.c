@@ -3,7 +3,14 @@
 #include <stdatomic.h>
 #include <string.h>
 
-static float s_frames[FRAME_RING_LEN][GESTURE_AXES];
+#ifdef ESP_PLATFORM
+#include "esp_attr.h"
+#define RING_ATTR EXT_RAM_BSS_ATTR     // 11 kB, keep it out of internal RAM
+#else
+#define RING_ATTR
+#endif
+
+RING_ATTR static float s_frames[FRAME_RING_LEN][GESTURE_AXES];
 static atomic_uint s_count;
 
 void frame_ring_push(const float frame[GESTURE_AXES])

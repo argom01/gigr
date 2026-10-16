@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "frame_ring.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/task.h"
 #include "gesture_task.h"
 #include "task_config.h"
@@ -74,8 +75,9 @@ static void capture_task(void *arg)
 esp_err_t capture_init(void)
 {
     gesture_set_frame_listener(on_frame);
-    const BaseType_t ok = xTaskCreatePinnedToCore(capture_task, "capture", TASK_STACK_CAPTURE, NULL, TASK_PRIO_CAPTURE,
-                                                  &s_task, TASK_CORE_CAPTURE);
+    const BaseType_t ok = xTaskCreatePinnedToCoreWithCaps(capture_task, "capture", TASK_STACK_CAPTURE, NULL,
+                                                          TASK_PRIO_CAPTURE, &s_task, TASK_CORE_CAPTURE,
+                                                          MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     return ok == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }
 
