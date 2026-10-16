@@ -46,6 +46,7 @@ void scr_sensors_create(lv_obj_t *tab)
     lv_obj_t *flex = gui_section(tab, "Flex (0 = straight, 1 = bent)");
     for (int i = 0; i < FINGER_COUNT; i++) {
         s_lbl[i] = gui_label(flex, FINGER_NAMES[i]);
+        lv_obj_set_style_text_font(s_lbl[i], &lv_font_montserrat_14, 0);
         s_bar[i] = gui_bar(flex, 0, 1000);
     }
 
