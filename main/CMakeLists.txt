@@ -1,4 +1,4 @@
-idf_component_register(SRCS "gigr.c" "sysmon.c" "sensor_task.c"
+idf_component_register(SRCS "gigr.c" "sysmon.c" "sensor_task.c" "touchpad_mode.c"
                     INCLUDE_DIRS "."
                     REQUIRES
                         board

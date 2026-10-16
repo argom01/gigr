@@ -10,6 +10,7 @@
 #include "imu.h"
 #include "sensor_task.h"
 #include "touch.h"
+#include "touchpad_mode.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "settings.h"
@@ -52,6 +53,7 @@ void app_main(void)
         gui_init();
         display_start();
         if (app_hw_ok(HW_TOUCH)) {
+            touchpad_mode_init();
             touch_start();
         }
     } else {

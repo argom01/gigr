@@ -1,4 +1,4 @@
-idf_component_register(SRCS "display.c" "touch.c"
+idf_component_register(SRCS "display.c" "touch.c" "touchpad.c"
                     INCLUDE_DIRS "include"
                     REQUIRES
                         lvgl

@@ -14,6 +14,7 @@ static const gui_screen_t s_screens[] = {
     { LV_SYMBOL_EYE_OPEN " Sens", scr_sensors_create, scr_sensors_update },
     { LV_SYMBOL_GPS " IMU", scr_imu_create, scr_imu_update },
     { LV_SYMBOL_EDIT " Flex", scr_flex_create, scr_flex_update },
+    { LV_SYMBOL_KEYBOARD " Pad", scr_touchpad_create, NULL },
     { LV_SYMBOL_SETTINGS " Sys", scr_system_create, scr_system_update },
 };
 #define SCREEN_COUNT (sizeof(s_screens) / sizeof(s_screens[0]))
@@ -34,11 +35,26 @@ static void update_status(const app_state_t *st)
     gui_set_text_color(s_status, st->ble.connected ? GUI_COL_ACCENT : GUI_COL_DIM);
 }
 
+static void follow_mode(const app_state_t *st)
+{
+    lv_obj_t *pad = scr_touchpad_screen();
+    lv_obj_t *active = lv_screen_active();
+    if (st->mode == APP_MODE_TOUCHPAD && active != pad) {
+        lv_screen_load(pad);
+    } else if (st->mode != APP_MODE_TOUCHPAD && active == pad) {
+        lv_screen_load(s_main_screen);
+    }
+    if (active == pad) {
+        scr_touchpad_pad_update(st);
+    }
+}
+
 static void update_timer_cb(lv_timer_t *t)
 {
     (void)t;
     app_state_get(&s_state);
     update_status(&s_state);
+    follow_mode(&s_state);
 
     const uint32_t active = lv_tabview_get_tab_active(s_tabview);
     if (lv_screen_active() == s_main_screen && active < SCREEN_COUNT && s_screens[active].update) {
