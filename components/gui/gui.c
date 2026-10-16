@@ -46,6 +46,11 @@ static void update_timer_cb(lv_timer_t *t)
     }
 }
 
+lv_obj_t *gui_main_screen(void)
+{
+    return s_main_screen;
+}
+
 void gui_init(void)
 {
     s_main_screen = lv_screen_active();

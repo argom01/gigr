@@ -51,6 +51,11 @@ void gui_set_text_color(lv_obj_t *obj, lv_color_t color);
 const char *gui_hw_text(hw_status_t st);
 lv_color_t gui_hw_color(hw_status_t st);
 
+// ── Navigation ───────────────────────────────────────────────────────────────
+
+lv_obj_t *gui_main_screen(void);
+void gui_touchtest_open(void);
+
 // ── Screens (one per tab) ────────────────────────────────────────────────────
 
 typedef struct {

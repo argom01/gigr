@@ -1,4 +1,4 @@
-idf_component_register(SRCS "display.c"
+idf_component_register(SRCS "display.c" "touch.c"
                     INCLUDE_DIRS "include"
                     REQUIRES
                         lvgl
@@ -10,4 +10,6 @@ idf_component_register(SRCS "display.c"
                         esp_driver_gpio
                         esp_timer
                         espressif__esp_lcd_st7796
+                        espressif__esp_lcd_touch_gt911
+                        sensors
                     )

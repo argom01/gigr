@@ -6,6 +6,7 @@
 #include "i2c_bus.h"
 #include "imu.h"
 #include "sensor_task.h"
+#include "touch.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "settings.h"
@@ -43,11 +44,17 @@ void app_main(void)
     // only bus/driver errors mark it missing.
     if (display_init() == ESP_OK) {
         app_hw_set(HW_DISPLAY, HW_OK);
+        // the touch input device must exist before the GUI task starts
+        app_hw_set(HW_TOUCH, touch_init() == ESP_OK ? HW_OK : HW_MISSING);
         gui_init();
         display_start();
+        if (app_hw_ok(HW_TOUCH)) {
+            touch_start();
+        }
     } else {
         ESP_LOGE(TAG, "display init failed");
         app_hw_set(HW_DISPLAY, HW_MISSING);
+        app_hw_set(HW_TOUCH, HW_MISSING);
     }
 
     ESP_ERROR_CHECK(sensor_task_start());

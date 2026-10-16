@@ -66,6 +66,12 @@ static void on_reboot(lv_event_t *e)
     esp_restart();
 }
 
+static void on_touch_test(lv_event_t *e)
+{
+    (void)e;
+    gui_touchtest_open();
+}
+
 static void on_reset_confirm(lv_event_t *e)
 {
     lv_obj_t *mbox = lv_event_get_user_data(e);
@@ -112,6 +118,7 @@ void scr_system_create(lv_obj_t *tab)
 
     lv_obj_t *act = gui_section(tab, "Device");
     lv_obj_t *row = gui_row(act);
+    gui_button(row, LV_SYMBOL_EDIT " Touch test", on_touch_test, NULL);
     gui_button(row, LV_SYMBOL_REFRESH " Reboot", on_reboot, NULL);
     gui_button(row, LV_SYMBOL_TRASH " Reset settings", on_reset, NULL);
 }
