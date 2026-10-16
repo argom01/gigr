@@ -78,7 +78,8 @@ static void touch_task(void *arg)
 {
     (void)arg;
     bool down = false;
-    bool swallow = false;   // first touch only wakes a dark screen
+    bool swallow = false;   // ignore the rest of this touch (screen wake, touchpad exit)
+    bool was_pad_mode = false;
     touch_frame_t frame = { 0 };
 
     for (;;) {
@@ -86,7 +87,9 @@ static void touch_task(void *arg)
         const bool irq = ulTaskNotifyTake(pdTRUE, wait) > 0;
 
         frame.n = 0;
-        if (irq) {
+        // on a timeout while pressed, poll once: a held finger keeps reporting,
+        // so no data now means the release pulse was missed
+        if (irq || down) {
             esp_lcd_touch_point_data_t pts[TOUCH_MAX_POINTS];
             uint8_t n = 0;
             if (esp_lcd_touch_read_data(s_tp) == ESP_OK &&
@@ -97,7 +100,6 @@ static void touch_task(void *arg)
                 frame.n = n;
             }
         }
-        // no report for a while while pressed = released (missed release pulse)
         frame.t_us = esp_timer_get_time();
 
         const bool now_down = frame.n > 0;
@@ -109,6 +111,10 @@ static void touch_task(void *arg)
         }
 
         const bool pad_mode = app_mode_get() == APP_MODE_TOUCHPAD;
+        if (was_pad_mode && !pad_mode && now_down) {
+            swallow = true;     // the finger that held the exit corner must not click the GUI
+        }
+        was_pad_mode = pad_mode;
         taskENTER_CRITICAL(&s_lock);
         s_pressed = now_down && !swallow && !pad_mode;
         if (now_down) {

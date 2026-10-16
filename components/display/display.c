@@ -26,6 +26,15 @@ static esp_lcd_panel_handle_t s_panel;
 static lv_display_t *s_disp;
 static atomic_bool s_first_frame;
 
+static void log_cb(lv_log_level_t level, const char *buf)
+{
+    if (level >= LV_LOG_LEVEL_ERROR) {
+        ESP_LOGE("lvgl", "%s", buf);
+    } else {
+        ESP_LOGW("lvgl", "%s", buf);
+    }
+}
+
 static uint32_t tick_cb(void)
 {
     return (uint32_t)(esp_timer_get_time() / 1000);
@@ -64,6 +73,15 @@ esp_err_t display_init(void)
 {
     lv_init();
     lv_tick_set_cb(tick_cb);
+    lv_log_register_print_cb(log_cb);
+
+    // keep LVGL objects out of the scarce internal RAM
+    void *pool = heap_caps_malloc(LVGL_PSRAM_POOL_KB * 1024, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (pool) {
+        lv_mem_add_pool(pool, LVGL_PSRAM_POOL_KB * 1024);
+    } else {
+        ESP_LOGW(TAG, "no PSRAM pool for LVGL, using the internal %d kB only", CONFIG_LV_MEM_SIZE_KILOBYTES);
+    }
 
     s_disp = lv_display_create(LCD_H_RES, LCD_V_RES);
     ESP_RETURN_ON_FALSE(s_disp, ESP_ERR_NO_MEM, TAG, "lv_display_create");

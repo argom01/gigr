@@ -74,6 +74,12 @@ void settings_defaults(settings_t *s);
 
 void settings_get(settings_t *out);
 void settings_set(const settings_t *in);
+
+// Atomic read-modify-write from any task:
+//   settings_t *s = settings_edit_begin();  s->x = 1;  settings_edit_end();
+// Do not call other settings_* functions in between.
+settings_t *settings_edit_begin(void);
+void settings_edit_end(void);
 uint32_t settings_version(void);
 
 // Call periodically; writes to NVS once changes have settled

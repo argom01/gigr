@@ -17,15 +17,11 @@
 // ── Settings helper ──────────────────────────────────────────────────────────
 // GUI_SETTINGS_EDIT(s->backlight_pct = 50);
 
-#define GUI_SETTINGS_EDIT(stmt)        \
-    do {                               \
-        settings_t gui_s_;             \
-        settings_get(&gui_s_);         \
-        {                              \
-            settings_t *s = &gui_s_;   \
-            stmt;                      \
-        }                              \
-        settings_set(&gui_s_);         \
+#define GUI_SETTINGS_EDIT(stmt)                     \
+    do {                                            \
+        settings_t *s = settings_edit_begin();      \
+        stmt;                                       \
+        settings_edit_end();                        \
     } while (0)
 
 // ── Widget helpers ───────────────────────────────────────────────────────────

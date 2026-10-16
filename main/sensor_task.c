@@ -112,6 +112,9 @@ static void reload_settings(sensor_ctx_t *c)
     }
     c->cfg_version = settings_version();
     settings_get(&c->cfg);
+    if (!c->cfg.level_valid) {
+        quat_identity(c->cfg.level_quat);
+    }
     airmouse_params_t p;
     airmouse_params_from_settings(&c->cfg, &p);
     airmouse_set_params(&c->am, &p);
@@ -169,11 +172,6 @@ static void airmouse_tick(sensor_ctx_t *c, const app_sensor_state_t *st, float d
     APP_STATE_PUT(airmouse, a);
 }
 
-static void save_settings(sensor_ctx_t *c)
-{
-    settings_set(&c->cfg);
-    c->cfg_version = settings_version();
-}
 
 // ── Flex calibration state machine ───────────────────────────────────────────
 
@@ -215,16 +213,18 @@ static void flexcal_finish(sensor_ctx_t *c)
     case REQ_FLEX_CAL_THUMB:
         c->pending_closed[FINGER_THUMB] = c->fc.mean_mv[FINGER_THUMB];
         break;
-    case REQ_FLEX_REZERO:
+    case REQ_FLEX_REZERO: {
         // keep each finger's span, move the open point
+        settings_t *s = settings_edit_begin();
         for (int i = 0; i < FINGER_COUNT; i++) {
-            const float span = c->cfg.flex_closed_mv[i] - c->cfg.flex_open_mv[i];
-            c->cfg.flex_open_mv[i] = c->fc.mean_mv[i];
-            c->cfg.flex_closed_mv[i] = c->fc.mean_mv[i] + span;
+            const float span = s->flex_closed_mv[i] - s->flex_open_mv[i];
+            s->flex_open_mv[i] = c->fc.mean_mv[i];
+            s->flex_closed_mv[i] = c->fc.mean_mv[i] + span;
         }
-        save_settings(c);
+        settings_edit_end();
         ESP_LOGI(TAG, "flex re-zeroed");
         break;
+    }
     default:
         break;
     }
@@ -236,16 +236,20 @@ static void flexcal_finish(sensor_ctx_t *c)
 static void flexcal_save(sensor_ctx_t *c)
 {
     const uint8_t ok = flex_cal_span_mask(c->pending_open, c->pending_closed, FLEX_CAL_MIN_SPAN_MV);
+    settings_t *s = settings_edit_begin();
     for (int i = 0; i < FINGER_COUNT; i++) {
         if (ok & (1u << i)) {
-            c->cfg.flex_open_mv[i] = c->pending_open[i];
-            c->cfg.flex_closed_mv[i] = c->pending_closed[i];
-        } else {
+            s->flex_open_mv[i] = c->pending_open[i];
+            s->flex_closed_mv[i] = c->pending_closed[i];
+        }
+    }
+    s->flex_cal_valid = (ok == FLEX_ALL_FINGERS_MASK);
+    settings_edit_end();
+    for (int i = 0; i < FINGER_COUNT; i++) {
+        if (!(ok & (1u << i))) {
             ESP_LOGW(TAG, "finger %d: span too small, keeping previous calibration", i);
         }
     }
-    c->cfg.flex_cal_valid = (ok == FLEX_ALL_FINGERS_MASK);
-    save_settings(c);
     c->fc.span_ok_mask = ok;
     c->fc.polarity_ok_mask = flex_cal_polarity_mask(c->pending_open, c->pending_closed);
     ESP_LOGI(TAG, "flex calibration saved (mask 0x%02x)", ok);
@@ -292,17 +296,19 @@ static void imucal_step(sensor_ctx_t *c, const float a_mounted[3], const float g
         c->imu_cal_start_us = now;
     }
     if (app_req_take(REQ_LEVEL_RESET)) {
-        quat_identity(c->cfg.level_quat);
-        c->cfg.level_valid = false;
-        save_settings(c);
+        settings_t *s = settings_edit_begin();
+        quat_identity(s->level_quat);
+        s->level_valid = false;
+        settings_edit_end();
         ESP_LOGI(TAG, "levelling cleared");
     }
 
     if (c->imu_cal == IMUCAL_GYRO_BUSY) {
         if (gyro_bias_capture_poll(&c->bias)) {
-            memcpy(c->cfg.gyro_bias_dps, c->bias.bias, sizeof(c->cfg.gyro_bias_dps));
-            c->cfg.gyro_bias_valid = true;
-            save_settings(c);
+            settings_t *s = settings_edit_begin();
+            memcpy(s->gyro_bias_dps, c->bias.bias, sizeof(s->gyro_bias_dps));
+            s->gyro_bias_valid = true;
+            settings_edit_end();
             c->imu_cal = IMUCAL_DONE;
             ESP_LOGI(TAG, "gyro bias %.2f %.2f %.2f dps", (double)c->bias.bias[0], (double)c->bias.bias[1],
                      (double)c->bias.bias[2]);
@@ -326,9 +332,10 @@ static void imucal_step(sensor_ctx_t *c, const float a_mounted[3], const float g
             float g[3] = { c->level_sum[0], c->level_sum[1], c->level_sum[2] };
             v3_normalize(g);
             const float up[3] = { 0.0f, 0.0f, 1.0f };
-            quat_from_two_vectors(g, up, c->cfg.level_quat);
-            c->cfg.level_valid = true;
-            save_settings(c);
+            settings_t *s = settings_edit_begin();
+            quat_from_two_vectors(g, up, s->level_quat);
+            s->level_valid = true;
+            settings_edit_end();
             mahony_reset(&c->ahrs);
             c->imu_cal = IMUCAL_DONE;
             ESP_LOGI(TAG, "levelled: gravity was %.3f %.3f %.3f", (double)g[0], (double)g[1], (double)g[2]);

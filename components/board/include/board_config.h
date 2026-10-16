@@ -24,6 +24,7 @@
 #define LCD_INVERT_COLOR            0   // VERIFY ON HW: white looks black -> flip
 #define LCD_BGR                     1   // VERIFY ON HW: red and blue swapped -> flip
 #define LCD_DRAW_BUF_LINES          32  // lines per partial LVGL buffer (x2 buffers, internal DMA RAM)
+#define LVGL_PSRAM_POOL_KB          1024 // LVGL object heap in PSRAM
 
 // Backlight (LEDC PWM on GPIO46 through a MOSFET)
 #define BACKLIGHT_PWM_HZ            20000

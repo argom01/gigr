@@ -147,6 +147,20 @@ void settings_set(const settings_t *in)
     atomic_fetch_add(&s_version, 1);
 }
 
+settings_t *settings_edit_begin(void)
+{
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    return &s_settings;
+}
+
+void settings_edit_end(void)
+{
+    s_dirty = true;
+    s_changed_us = esp_timer_get_time();
+    xSemaphoreGive(s_mutex);
+    atomic_fetch_add(&s_version, 1);
+}
+
 uint32_t settings_version(void)
 {
     return atomic_load(&s_version);

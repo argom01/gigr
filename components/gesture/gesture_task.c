@@ -103,27 +103,27 @@ void gesture_bind_profile_to_peer(void)
         ESP_LOGW(TAG, "bind: no host connected");
         return;
     }
-    settings_t cfg;
-    settings_get(&cfg);
-    int slot = find_peer(&cfg, ble.peer);
+    settings_t *cfg = settings_edit_begin();
+    int slot = find_peer(cfg, ble.peer);
     if (slot < 0) {
         for (int i = 0; i < SETTINGS_MAX_PEERS && slot < 0; i++) {
-            if (!cfg.peers[i].used) {
+            if (!cfg->peers[i].used) {
                 slot = i;
             }
         }
     }
     if (slot < 0) {
         // table full: drop the oldest entry
-        memmove(&cfg.peers[0], &cfg.peers[1], sizeof(cfg.peers[0]) * (SETTINGS_MAX_PEERS - 1));
+        memmove(&cfg->peers[0], &cfg->peers[1], sizeof(cfg->peers[0]) * (SETTINGS_MAX_PEERS - 1));
         slot = SETTINGS_MAX_PEERS - 1;
     }
-    memcpy(cfg.peers[slot].bda, ble.peer, 6);
-    cfg.peers[slot].profile = cfg.host_profile;
-    cfg.peers[slot].used = 1;
-    cfg.profile_per_peer = true;
-    settings_set(&cfg);
-    ESP_LOGI(TAG, "profile '%s' bound to %02x:%02x:%02x:%02x:%02x:%02x", g_profiles[cfg.host_profile].name,
+    memcpy(cfg->peers[slot].bda, ble.peer, 6);
+    const uint8_t profile = cfg->host_profile;
+    cfg->peers[slot].profile = profile;
+    cfg->peers[slot].used = 1;
+    cfg->profile_per_peer = true;
+    settings_edit_end();
+    ESP_LOGI(TAG, "profile '%s' bound to %02x:%02x:%02x:%02x:%02x:%02x", g_profiles[profile].name,
              ble.peer[0], ble.peer[1], ble.peer[2], ble.peer[3], ble.peer[4], ble.peer[5]);
 }
 

@@ -206,9 +206,12 @@ void scr_system_update(const app_state_t *st)
                           (double)st->sys.cpu_load[1], (unsigned long)st->sys.uptime_s);
     lv_bar_set_value(s_cpu[0], (int32_t)st->sys.cpu_load[0], LV_ANIM_OFF);
     lv_bar_set_value(s_cpu[1], (int32_t)st->sys.cpu_load[1], LV_ANIM_OFF);
-    lv_label_set_text_fmt(s_heap, "Internal free %lu kB (min %lu kB)  PSRAM free %lu kB",
+    lv_mem_monitor_t mon;
+    lv_mem_monitor(&mon);
+    lv_label_set_text_fmt(s_heap, "Internal free %lu kB (min %lu kB)  PSRAM free %lu kB\nLVGL heap used %lu of %lu kB",
                           (unsigned long)(st->sys.heap_int_free / 1024), (unsigned long)(st->sys.heap_int_min / 1024),
-                          (unsigned long)(st->sys.heap_psram_free / 1024));
+                          (unsigned long)(st->sys.heap_psram_free / 1024),
+                          (unsigned long)((mon.total_size - mon.free_size) / 1024), (unsigned long)(mon.total_size / 1024));
 
     if (++s_task_refresh >= 40) {   // every 2 s
         s_task_refresh = 0;
