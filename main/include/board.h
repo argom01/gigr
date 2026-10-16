@@ -16,6 +16,7 @@
 #define FLEX_2_PIN 5
 #define FLEX_3_PIN 1
 #define FLEX_4_PIN 2
+#define FLEX_5_PIN 6
 
 #define BAT_GUAGE_PIN 7
 #define BAT_CHG_IDC_PIN 39
