@@ -2,7 +2,9 @@
 
 #include <string.h>
 #include "app_state.h"
+#include "board_config.h"
 #include "board_io.h"
+#include "display.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -69,6 +71,25 @@ static void update_led(const app_state_t *st, const settings_t *cfg, uint32_t ti
     board_led_set(on);
 }
 
+static void update_backlight(const app_state_t *st, const settings_t *cfg)
+{
+    if (st->hw[HW_DISPLAY] != HW_OK || !display_first_frame_done()) {
+        return;
+    }
+    const int64_t idle_s = (esp_timer_get_time() - app_activity_last_us()) / 1000000;
+    uint8_t pct = cfg->backlight_pct;
+    if (st->mode != APP_MODE_TOUCHPAD) {
+        if (cfg->off_timeout_s && idle_s >= cfg->off_timeout_s) {
+            pct = 0;
+        } else if (cfg->dim_timeout_s && idle_s >= cfg->dim_timeout_s && pct > BACKLIGHT_DIM_PCT) {
+            pct = BACKLIGHT_DIM_PCT;
+        }
+    }
+    if (pct != board_backlight_get()) {
+        board_backlight_set(pct);
+    }
+}
+
 static void sysmon_task(void *arg)
 {
     (void)arg;
@@ -87,6 +108,7 @@ static void sysmon_task(void *arg)
         app_state_get(st);
 
         update_led(st, &cfg, tick);
+        update_backlight(st, &cfg);
 
         if (tick % 10 == 0) {
             app_sys_state_t sys = st->sys;

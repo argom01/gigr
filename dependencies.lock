@@ -61,6 +61,6 @@ direct_dependencies:
 - espressif/esp_lcd_st7796
 - espressif/esp_lcd_touch_gt911
 - idf
-manifest_hash: 412b4d1b4ce1509fed00cc4cd412b77cb45b5e1da3882a70842a9dbce0b50133
+manifest_hash: c48911095c9921b7e3ea0da1bb887b11b010056ff3e05652ca612410ebb87041
 target: esp32s3
 version: 2.0.0

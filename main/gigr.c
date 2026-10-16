@@ -1,5 +1,7 @@
 #include "app_state.h"
 #include "board_io.h"
+#include "display.h"
+#include "gui.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "settings.h"
@@ -25,6 +27,17 @@ void app_main(void)
     app_state_init();
     settings_init();
     ESP_ERROR_CHECK(board_io_init());
+
+    // Display: no reliable presence detection on a write-only SPI panel, so
+    // only bus/driver errors mark it missing.
+    if (display_init() == ESP_OK) {
+        app_hw_set(HW_DISPLAY, HW_OK);
+        gui_init();
+        display_start();
+    } else {
+        ESP_LOGE(TAG, "display init failed");
+        app_hw_set(HW_DISPLAY, HW_MISSING);
+    }
 
     ESP_ERROR_CHECK(sysmon_start());
 

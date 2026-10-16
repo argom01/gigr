@@ -3,6 +3,8 @@ idf_component_register(SRCS "gigr.c" "sysmon.c"
                     REQUIRES
                         board
                         appcore
+                        display
+                        gui
                     PRIV_REQUIRES
                         nvs_flash
                         esp_timer
