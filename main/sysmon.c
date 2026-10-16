@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include "app_state.h"
+#include "ble_hid.h"
 #include "board_config.h"
 #include "board_io.h"
 #include "display.h"
@@ -90,6 +91,21 @@ static void update_backlight(const app_state_t *st, const settings_t *cfg)
     }
 }
 
+static void update_ble_battery(const app_state_t *st)
+{
+    static int last_pct = -1;
+    static bool last_connected;
+    if (!st->battery.valid || st->hw[HW_BLE] != HW_OK) {
+        return;
+    }
+    // notify on change, and once after every (re)connection
+    if (st->battery.pct != last_pct || st->ble.connected != last_connected) {
+        last_pct = st->battery.pct;
+        last_connected = st->ble.connected;
+        hid_device_set_battery(st->battery.pct);
+    }
+}
+
 static void sysmon_task(void *arg)
 {
     (void)arg;
@@ -109,6 +125,7 @@ static void sysmon_task(void *arg)
 
         update_led(st, &cfg, tick);
         update_backlight(st, &cfg);
+        update_ble_battery(st);
 
         if (tick % 10 == 0) {
             app_sys_state_t sys = st->sys;

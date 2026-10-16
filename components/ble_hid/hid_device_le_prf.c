@@ -45,7 +45,7 @@ static const uint8_t hidReportMap[] = {
     0x81, 0x02,  //     Input (Data, Variable, Absolute) - Button states
     0x75, 0x05,  //     Report Size (5)
     0x95, 0x01,  //     Report Count (1)
-    0x81, 0x01,  //     Input (Constant) - Padding or Reserved bits
+    0x81, 0x01,  //     Input (Constant) - Padding
     0x05, 0x01,  //     Usage Page (Generic Desktop)
     0x09, 0x30,  //     Usage (X)
     0x09, 0x31,  //     Usage (Y)
@@ -53,14 +53,20 @@ static const uint8_t hidReportMap[] = {
     0x26, 0xFF, 0x7F,  //     Logical Maximum (32767)
     0x75, 0x10,  //     Report Size (16)
     0x95, 0x02,  //     Report Count (2)
-    0x81, 0x06,  //     Input (Data, Variable, Relative) - X & Y coordinate
-
+    0x81, 0x06,  //     Input (Data, Variable, Relative) - X & Y
     0x09, 0x38,  //     Usage (Wheel)
     0x15, 0x81,  //     Logical Minimum (-127)
     0x25, 0x7F,  //     Logical Maximum (127)
     0x75, 0x08,  //     Report Size (8)
     0x95, 0x01,  //     Report Count (1)
-    0x81, 0x06,  //     Input (Data, Variable, Relative) - X & Y coordinate
+    0x81, 0x06,  //     Input (Data, Variable, Relative) - vertical wheel
+    0x05, 0x0C,  //     Usage Page (Consumer)
+    0x0A, 0x38, 0x02,  //     Usage (AC Pan)
+    0x15, 0x81,  //     Logical Minimum (-127)
+    0x25, 0x7F,  //     Logical Maximum (127)
+    0x75, 0x08,  //     Report Size (8)
+    0x95, 0x01,  //     Report Count (1)
+    0x81, 0x06,  //     Input (Data, Variable, Relative) - horizontal scroll
     0xC0,        //   End Collection
     0xC0,        // End Collection
 
@@ -110,63 +116,20 @@ static const uint8_t hidReportMap[] = {
     //
     0xC0,        // End Collection
     //
+    // Consumer control: one 16-bit usage (0 = released). Covers media keys,
+    // volume and the AC Home/Back/Search usages phones understand.
     0x05, 0x0C,   // Usage Pg (Consumer Devices)
     0x09, 0x01,   // Usage (Consumer Control)
     0xA1, 0x01,   // Collection (Application)
     0x85, 0x03,   // Report Id (3)
-    0x09, 0x02,   //   Usage (Numeric Key Pad)
-    0xA1, 0x02,   //   Collection (Logical)
-    0x05, 0x09,   //     Usage Pg (Button)
-    0x19, 0x01,   //     Usage Min (Button 1)
-    0x29, 0x0A,   //     Usage Max (Button 10)
-    0x15, 0x01,   //     Logical Min (1)
-    0x25, 0x0A,   //     Logical Max (10)
-    0x75, 0x04,   //     Report Size (4)
-    0x95, 0x01,   //     Report Count (1)
-    0x81, 0x00,   //     Input (Data, Ary, Abs)
-    0xC0,         //   End Collection
-    0x05, 0x0C,   //   Usage Pg (Consumer Devices)
-    0x09, 0x86,   //   Usage (Channel)
-    0x15, 0xFF,   //   Logical Min (-1)
-    0x25, 0x01,   //   Logical Max (1)
-    0x75, 0x02,   //   Report Size (2)
-    0x95, 0x01,   //   Report Count (1)
-    0x81, 0x46,   //   Input (Data, Var, Rel, Null)
-    0x09, 0xE9,   //   Usage (Volume Up)
-    0x09, 0xEA,   //   Usage (Volume Down)
     0x15, 0x00,   //   Logical Min (0)
-    0x75, 0x01,   //   Report Size (1)
-    0x95, 0x02,   //   Report Count (2)
-    0x81, 0x02,   //   Input (Data, Var, Abs)
-    0x09, 0xE2,   //   Usage (Mute)
-    0x09, 0x30,   //   Usage (Power)
-    0x09, 0x83,   //   Usage (Recall Last)
-    0x09, 0x81,   //   Usage (Assign Selection)
-    0x09, 0xB0,   //   Usage (Play)
-    0x09, 0xB1,   //   Usage (Pause)
-    0x09, 0xB2,   //   Usage (Record)
-    0x09, 0xB3,   //   Usage (Fast Forward)
-    0x09, 0xB4,   //   Usage (Rewind)
-    0x09, 0xB5,   //   Usage (Scan Next)
-    0x09, 0xB6,   //   Usage (Scan Prev)
-    0x09, 0xB7,   //   Usage (Stop)
-    0x15, 0x01,   //   Logical Min (1)
-    0x25, 0x0C,   //   Logical Max (12)
-    0x75, 0x04,   //   Report Size (4)
+    0x26, 0xFF, 0x03, //   Logical Max (0x3FF)
+    0x19, 0x00,   //   Usage Min (0)
+    0x2A, 0xFF, 0x03, //   Usage Max (0x3FF)
+    0x75, 0x10,   //   Report Size (16)
     0x95, 0x01,   //   Report Count (1)
-    0x81, 0x00,   //   Input (Data, Ary, Abs)
-    0x09, 0x80,   //   Usage (Selection)
-    0xA1, 0x02,   //   Collection (Logical)
-    0x05, 0x09,   //     Usage Pg (Button)
-    0x19, 0x01,   //     Usage Min (Button 1)
-    0x29, 0x03,   //     Usage Max (Button 3)
-    0x15, 0x01,   //     Logical Min (1)
-    0x25, 0x03,   //     Logical Max (3)
-    0x75, 0x02,   //     Report Size (2)
-    0x81, 0x00,   //     Input (Data, Ary, Abs)
-    0xC0,           //   End Collection
-    0x81, 0x03,   //   Input (Const, Var, Abs)
-    0xC0,            // End Collectionq
+    0x81, 0x00,   //   Input (Data, Array, Abs)
+    0xC0,         // End Collection
 
 #if (SUPPORT_REPORT_VENDOR == true)
     0x06, 0xFF, 0xFF, // Usage Page(Vendor defined)
@@ -211,7 +174,7 @@ struct gatts_profile_inst {
 hidd_le_env_t hidd_le_env;
 
 // HID report map length
-uint8_t hidReportMapLen = sizeof(hidReportMap);
+uint16_t hidReportMapLen = sizeof(hidReportMap);
 uint8_t hidProtocolMode = HID_PROTOCOL_MODE_REPORT;
 
 // HID report mapping table
@@ -299,6 +262,8 @@ static const uint8_t   bat_lev_ccc[2] ={ 0x00, 0x00};
 static const uint16_t char_format_uuid = ESP_GATT_UUID_CHAR_PRESENT_FORMAT;
 
 static uint8_t battary_lev = 50;
+static uint16_t s_bat_lvl_handle;
+static volatile bool s_congested;
 /// Full HRS Database Description - Used to add attributes into the database
 static const esp_gatts_attr_db_t bas_att_db[BAS_IDX_NB] =
 {
@@ -583,6 +548,7 @@ void esp_hidd_prf_cb_hdl(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
             break;
         }
         case ESP_GATTS_DISCONNECT_EVT: {
+            s_congested = false;
 			 if(hidd_le_env.hidd_cb != NULL) {
                     (hidd_le_env.hidd_cb)(ESP_HIDD_EVENT_BLE_DISCONNECT, NULL);
              }
@@ -590,6 +556,9 @@ void esp_hidd_prf_cb_hdl(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
             break;
         }
         case ESP_GATTS_CLOSE_EVT:
+            break;
+        case ESP_GATTS_CONGEST_EVT:
+            s_congested = param->congest.congested;
             break;
         case ESP_GATTS_WRITE_EVT: {
             esp_hidd_cb_param_t cb_param = {0};
@@ -617,6 +586,7 @@ void esp_hidd_prf_cb_hdl(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
                 param->add_attr_tab.svc_uuid.uuid.uuid16 == ESP_GATT_UUID_BATTERY_SERVICE_SVC &&
                 param->add_attr_tab.status == ESP_GATT_OK) {
                 incl_svc.start_hdl = param->add_attr_tab.handles[BAS_IDX_SVC];
+                s_bat_lvl_handle = param->add_attr_tab.handles[BAS_IDX_BATT_LVL_VAL];
                 incl_svc.end_hdl = incl_svc.start_hdl + BAS_IDX_NB -1;
                 ESP_LOGI(HID_LE_PRF_TAG, "%s(), start added the hid service to the stack database. incl_handle = %d",
                            __func__, incl_svc.start_hdl);
@@ -818,4 +788,21 @@ static void hid_add_id_tbl(void)
 
   // Setup report ID map
   hid_dev_register_reports(HID_NUM_REPORTS, hid_rpt_map);
+}
+
+bool hidd_is_congested(void)
+{
+    return s_congested;
+}
+
+void hidd_set_battery_level(uint16_t conn_id, bool connected, uint8_t level)
+{
+    battary_lev = level;
+    if (s_bat_lvl_handle == 0) {
+        return;
+    }
+    esp_ble_gatts_set_attr_value(s_bat_lvl_handle, sizeof(level), &level);
+    if (connected) {
+        esp_ble_gatts_send_indicate(hidd_le_env.gatt_if, conn_id, s_bat_lvl_handle, sizeof(level), &level, false);
+    }
 }

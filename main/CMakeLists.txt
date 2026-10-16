@@ -7,6 +7,7 @@ idf_component_register(SRCS "gigr.c" "sysmon.c" "sensor_task.c"
                         gui
                         sensors
                         fusion
+                        ble_hid
                     PRIV_REQUIRES
                         nvs_flash
                         esp_timer

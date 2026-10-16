@@ -18,7 +18,7 @@
 #define HID_LED_OUT_RPT_LEN         1
 
 // HID mouse input report length
-#define HID_MOUSE_IN_RPT_LEN        6
+#define HID_MOUSE_IN_RPT_LEN        7
 
 // HID consumer control input report length
 #define HID_CC_IN_RPT_LEN           2
@@ -84,17 +84,15 @@ uint16_t esp_hidd_get_version(void)
 	return HIDD_VERSION;
 }
 
-void esp_hidd_send_consumer_value(uint16_t conn_id, uint8_t key_cmd, bool key_pressed)
+void esp_hidd_send_consumer_value(uint16_t conn_id, uint16_t usage, bool key_pressed)
 {
-    uint8_t buffer[HID_CC_IN_RPT_LEN] = {0, 0};
+    uint8_t buffer[HID_CC_IN_RPT_LEN] = { 0, 0 };
     if (key_pressed) {
-        ESP_LOGD(HID_LE_PRF_TAG, "hid_consumer_build_report");
-        hid_consumer_build_report(buffer, key_cmd);
+        buffer[0] = usage & 0xFF;
+        buffer[1] = (usage >> 8) & 0xFF;
     }
-    ESP_LOGD(HID_LE_PRF_TAG, "buffer[0] = %x, buffer[1] = %x", buffer[0], buffer[1]);
     hid_dev_send_report(hidd_le_env.gatt_if, conn_id,
                         HID_RPT_ID_CC_IN, HID_REPORT_TYPE_INPUT, HID_CC_IN_RPT_LEN, buffer);
-    return;
 }
 
 void esp_hidd_send_keyboard_value(uint16_t conn_id, key_mask_t special_key_mask, uint8_t *keyboard_cmd, uint8_t num_key)
@@ -118,20 +116,19 @@ void esp_hidd_send_keyboard_value(uint16_t conn_id, key_mask_t special_key_mask,
     return;
 }
 
-void esp_hidd_send_mouse_value(uint16_t conn_id, uint8_t mouse_button, int16_t mickeys_x, int16_t mickeys_y)
+void esp_hidd_send_mouse_value(uint16_t conn_id, uint8_t mouse_button, int16_t mickeys_x, int16_t mickeys_y,
+                               int8_t wheel, int8_t pan)
 {
     uint8_t buffer[HID_MOUSE_IN_RPT_LEN];
 
-    buffer[0] = mouse_button;   // Buttons
+    buffer[0] = mouse_button;               // Buttons
     buffer[1] = mickeys_x & 0xFF;           // X
-    buffer[2] = (mickeys_x >> 8) & 0xFF;   // X (high byte)
-
+    buffer[2] = (mickeys_x >> 8) & 0xFF;
     buffer[3] = mickeys_y & 0xFF;           // Y
-    buffer[4] = (mickeys_y >> 8) & 0xFF;   // Y (high byte)
-
-    buffer[5] = 0; // Wheel (not used)
+    buffer[4] = (mickeys_y >> 8) & 0xFF;
+    buffer[5] = (uint8_t)wheel;             // vertical wheel
+    buffer[6] = (uint8_t)pan;               // horizontal scroll (AC Pan)
 
     hid_dev_send_report(hidd_le_env.gatt_if, conn_id,
                         HID_RPT_ID_MOUSE_IN, HID_REPORT_TYPE_INPUT, HID_MOUSE_IN_RPT_LEN, buffer);
-    return;
 }

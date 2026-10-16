@@ -5,6 +5,7 @@ idf_component_register(SRCS "gui.c" "gui_widgets.c" "scr_home.c" "scr_sensors.c"
                         appcore
                         board
                         display
+                        ble_hid
                         esp_timer
                         freertos
                     )

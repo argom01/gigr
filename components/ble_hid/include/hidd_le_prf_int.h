@@ -318,6 +318,9 @@ typedef struct {
 extern hidd_le_env_t hidd_le_env;
 extern uint8_t hidProtocolMode;
 
+bool hidd_is_congested(void);
+void hidd_set_battery_level(uint16_t conn_id, bool connected, uint8_t level);
+
 
 void hidd_clcb_alloc (uint16_t conn_id, esp_bd_addr_t bda);
 

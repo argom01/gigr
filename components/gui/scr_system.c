@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <string.h>
+#include "ble_hid.h"
 #include "board_io.h"
+#include "hid_codes.h"
+#include "hid_tx.h"
 #include "display.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -66,6 +69,51 @@ static void on_reboot(lv_event_t *e)
     esp_restart();
 }
 
+static lv_obj_t *s_ble;
+
+static void on_hid_key(lv_event_t *e)
+{
+    (void)e;
+    hid_tx_key(MOD_NONE, KC_A);
+}
+
+static void on_hid_vol(lv_event_t *e)
+{
+    (void)e;
+    hid_tx_consumer(CC_VOL_UP);
+}
+
+static void mouse_square_step(lv_timer_t *t)
+{
+    // small square so the motion is easy to see on the host
+    static const int8_t moves[4][2] = { { 40, 0 }, { 0, 40 }, { -40, 0 }, { 0, -40 } };
+    int *step = lv_timer_get_user_data(t);
+    hid_tx_mouse_move(moves[*step][0], moves[*step][1], 0, 0);
+    *step = (*step + 1) % 4;
+}
+
+static void on_hid_mouse(lv_event_t *e)
+{
+    (void)e;
+    static int step;
+    step = 0;
+    lv_timer_t *t = lv_timer_create(mouse_square_step, 150, &step);
+    lv_timer_set_repeat_count(t, 4);
+    lv_timer_set_auto_delete(t, true);
+}
+
+static void on_hid_scroll(lv_event_t *e)
+{
+    (void)e;
+    hid_tx_mouse_move(0, 0, -3, 0);
+}
+
+static void on_clear_bonds(lv_event_t *e)
+{
+    (void)e;
+    hid_device_clear_bonds();
+}
+
 static void on_touch_test(lv_event_t *e)
 {
     (void)e;
@@ -106,6 +154,15 @@ void scr_system_create(lv_obj_t *tab)
     gui_switch(disp, "FPS / CPU overlay", cfg.perf_overlay, on_overlay);
     gui_switch(disp, "Status LED", cfg.led_enabled, on_led);
 
+    lv_obj_t *ble = gui_section(tab, "Bluetooth HID test");
+    s_ble = gui_label(ble, "");
+    lv_obj_t *hrow = gui_row(ble);
+    gui_button(hrow, "Type 'a'", on_hid_key, NULL);
+    gui_button(hrow, "Vol +", on_hid_vol, NULL);
+    gui_button(hrow, "Move mouse", on_hid_mouse, NULL);
+    gui_button(hrow, "Scroll", on_hid_scroll, NULL);
+    gui_button(hrow, LV_SYMBOL_TRASH " Forget hosts", on_clear_bonds, NULL);
+
     lv_obj_t *perf = gui_section(tab, "Performance");
     s_cpu_lbl = gui_label(perf, "");
     s_cpu[0] = gui_bar(perf, 0, 100);
@@ -142,6 +199,9 @@ static void update_tasks(void)
 
 void scr_system_update(const app_state_t *st)
 {
+    lv_label_set_text_fmt(s_ble, "%s  reports sent %lu  dropped %lu",
+                          st->ble.connected ? "connected" : (st->ble.advertising ? "advertising" : "idle"),
+                          (unsigned long)st->ble.reports_sent, (unsigned long)st->ble.reports_dropped);
     lv_label_set_text_fmt(s_cpu_lbl, "CPU core0 %.0f%%  core1 %.0f%%   uptime %lu s", (double)st->sys.cpu_load[0],
                           (double)st->sys.cpu_load[1], (unsigned long)st->sys.uptime_s);
     lv_bar_set_value(s_cpu[0], (int32_t)st->sys.cpu_load[0], LV_ANIM_OFF);

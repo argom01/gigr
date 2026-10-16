@@ -1,4 +1,7 @@
 #include "app_state.h"
+#include "ble_hid.h"
+#include "board_config.h"
+#include "hid_tx.h"
 #include "board_io.h"
 #include "display.h"
 #include "flex_adc.h"
@@ -55,6 +58,13 @@ void app_main(void)
         ESP_LOGE(TAG, "display init failed");
         app_hw_set(HW_DISPLAY, HW_MISSING);
         app_hw_set(HW_TOUCH, HW_MISSING);
+    }
+
+    // Bluetooth LE HID (on-chip, so failures are fatal configuration errors)
+    if (hid_device_init(GLOVE_DEVICE_NAME) == ESP_OK && hid_tx_start() == ESP_OK) {
+        app_hw_set(HW_BLE, HW_OK);
+    } else {
+        app_hw_set(HW_BLE, HW_MISSING);
     }
 
     ESP_ERROR_CHECK(sensor_task_start());
