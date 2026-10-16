@@ -1,13 +1,10 @@
-idf_component_register(SRCS "gigr.c"
+idf_component_register(SRCS "gigr.c" "sysmon.c"
                     INCLUDE_DIRS "."
                     REQUIRES
-                        lvgl
-                        esp_driver_gpio
-                        esp_driver_spi
-                        esp_driver_i2c
-                        esp_timer
-                        freertos
+                        board
+                        appcore
                     PRIV_REQUIRES
                         nvs_flash
-                        ble_hid
+                        esp_timer
+                        freertos
                     )
