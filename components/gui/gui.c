@@ -17,6 +17,7 @@ static const gui_screen_t s_screens[] = {
     { LV_SYMBOL_LOOP " Gest", scr_gesture_create, scr_gesture_update },
     { LV_SYMBOL_SHUFFLE " Mouse", scr_airmouse_create, scr_airmouse_update },
     { LV_SYMBOL_KEYBOARD " Pad", scr_touchpad_create, NULL },
+    { LV_SYMBOL_UPLOAD " Data", scr_capture_create, scr_capture_update },
     { LV_SYMBOL_SETTINGS " Sys", scr_system_create, scr_system_update },
 };
 #define SCREEN_COUNT (sizeof(s_screens) / sizeof(s_screens[0]))

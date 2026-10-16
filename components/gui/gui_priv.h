@@ -79,6 +79,8 @@ void scr_airmouse_update(const app_state_t *st);
 void scr_touchpad_create(lv_obj_t *tab);
 lv_obj_t *scr_touchpad_screen(void);
 void scr_touchpad_pad_update(const app_state_t *st);
+void scr_capture_create(lv_obj_t *tab);
+void scr_capture_update(const app_state_t *st);
 void scr_system_create(lv_obj_t *tab);
 void scr_system_update(const app_state_t *st);
 

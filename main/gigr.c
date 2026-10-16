@@ -1,6 +1,7 @@
 #include "app_state.h"
 #include "ble_hid.h"
 #include "board_config.h"
+#include "capture.h"
 #include "hid_tx.h"
 #include "board_io.h"
 #include "display.h"
@@ -71,6 +72,7 @@ void app_main(void)
     }
 
     ESP_ERROR_CHECK(gesture_start());
+    ESP_ERROR_CHECK(capture_init());
     ESP_ERROR_CHECK(sensor_task_start());
     ESP_ERROR_CHECK(sysmon_start());
 
