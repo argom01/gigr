@@ -61,6 +61,12 @@ typedef struct {
 
 void scr_home_create(lv_obj_t *tab);
 void scr_home_update(const app_state_t *st);
+void scr_sensors_create(lv_obj_t *tab);
+void scr_sensors_update(const app_state_t *st);
+void scr_imu_create(lv_obj_t *tab);
+void scr_imu_update(const app_state_t *st);
+void scr_flex_create(lv_obj_t *tab);
+void scr_flex_update(const app_state_t *st);
 void scr_system_create(lv_obj_t *tab);
 void scr_system_update(const app_state_t *st);
 

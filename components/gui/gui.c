@@ -11,6 +11,9 @@ static const char *TAG = "gui";
 
 static const gui_screen_t s_screens[] = {
     { LV_SYMBOL_HOME " Home", scr_home_create, scr_home_update },
+    { LV_SYMBOL_EYE_OPEN " Sens", scr_sensors_create, scr_sensors_update },
+    { LV_SYMBOL_GPS " IMU", scr_imu_create, scr_imu_update },
+    { LV_SYMBOL_EDIT " Flex", scr_flex_create, scr_flex_update },
     { LV_SYMBOL_SETTINGS " Sys", scr_system_create, scr_system_update },
 };
 #define SCREEN_COUNT (sizeof(s_screens) / sizeof(s_screens[0]))

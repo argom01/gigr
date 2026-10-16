@@ -36,6 +36,14 @@ typedef enum {
     HW_MISSING,
 } hw_status_t;
 
+typedef enum {
+    IMUCAL_IDLE = 0,
+    IMUCAL_GYRO_BUSY,           // hold still
+    IMUCAL_LEVEL_BUSY,          // hold the hand flat and still
+    IMUCAL_DONE,
+    IMUCAL_FAILED,              // too much motion before the timeout
+} imucal_status_t;
+
 typedef struct {
     int64_t t_us;
     float accel_g[3];           // body frame, levelled
@@ -53,6 +61,8 @@ typedef struct {
     float jitter_ms;            // worst period deviation over the last second
     float loop_us;              // time spent in one sensor iteration
     uint32_t imu_errors;
+    float temp_c;
+    uint8_t imu_cal;            // imucal_status_t
 } app_sensor_state_t;
 
 typedef enum {
