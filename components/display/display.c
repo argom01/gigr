@@ -74,14 +74,7 @@ esp_err_t display_init(void)
     lv_init();
     lv_tick_set_cb(tick_cb);
     lv_log_register_print_cb(log_cb);
-
-    // keep LVGL objects out of the scarce internal RAM
-    void *pool = heap_caps_malloc(LVGL_PSRAM_POOL_KB * 1024, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (pool) {
-        lv_mem_add_pool(pool, LVGL_PSRAM_POOL_KB * 1024);
-    } else {
-        ESP_LOGW(TAG, "no PSRAM pool for LVGL, using the internal %d kB only", LV_MEM_SIZE / 1024);
-    }
+    // the LVGL heap (CONFIG_LV_MEM_SIZE) is allocated from PSRAM by lv_init(), see lv_mem_psram.h
 
     s_disp = lv_display_create(LCD_H_RES, LCD_V_RES);
     ESP_RETURN_ON_FALSE(s_disp, ESP_ERR_NO_MEM, TAG, "lv_display_create");
