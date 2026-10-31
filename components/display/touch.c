@@ -80,10 +80,21 @@ static void touch_task(void *arg)
     bool down = false;
     bool swallow = false;   // ignore the rest of this touch (screen wake, touchpad exit)
     bool was_pad_mode = false;
+    bool release_pending = false;   // empty report(s) while pressed, not yet confirmed
+    int64_t release_t_us = 0;       // time of the first empty report
     touch_frame_t frame = { 0 };
 
     for (;;) {
-        const TickType_t wait = down ? pdMS_TO_TICKS(TOUCH_RELEASE_TIMEOUT_MS) : portMAX_DELAY;
+        TickType_t wait = portMAX_DELAY;
+        if (release_pending) {
+            const int64_t left_us = release_t_us + TOUCH_RELEASE_DEBOUNCE_MS * 1000LL - esp_timer_get_time();
+            wait = left_us > 0 ? pdMS_TO_TICKS((left_us + 999) / 1000) : 0;
+            if (wait == 0) {
+                wait = 1;
+            }
+        } else if (down) {
+            wait = pdMS_TO_TICKS(TOUCH_RELEASE_TIMEOUT_MS);
+        }
         const bool irq = ulTaskNotifyTake(pdTRUE, wait) > 0;
 
         frame.n = 0;
@@ -101,6 +112,24 @@ static void touch_task(void *arg)
             }
         }
         frame.t_us = esp_timer_get_time();
+
+        // Debounce the release. A held finger can drop out for a report or two
+        // (charger / USB ground noise, "no new data" reads, I2C errors), which
+        // would otherwise look like a short tap. Hold the last pressed state
+        // until the touch has stayed empty for TOUCH_RELEASE_DEBOUNCE_MS.
+        if (down && frame.n == 0) {
+            if (!release_pending) {
+                release_pending = true;
+                release_t_us = frame.t_us;
+                continue;
+            }
+            if (frame.t_us - release_t_us < TOUCH_RELEASE_DEBOUNCE_MS * 1000LL) {
+                continue;
+            }
+            // confirmed: date it to the first empty report so tap timing is unchanged
+            frame.t_us = release_t_us;
+        }
+        release_pending = false;
 
         const bool now_down = frame.n > 0;
         if (now_down && !down && board_backlight_get() == 0) {
