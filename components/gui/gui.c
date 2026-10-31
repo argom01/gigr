@@ -79,6 +79,8 @@ void gui_init(void)
     lv_tabview_set_tab_bar_size(s_tabview, 84);
     lv_obj_t *bar = lv_tabview_get_tab_bar(s_tabview);
     lv_obj_set_style_text_font(bar, &lv_font_montserrat_14, 0);
+    // tabs change only from the tab bar; a swipe on the content must not switch them
+    lv_obj_set_scrollable(lv_tabview_get_content(s_tabview), false);
 
     for (size_t i = 0; i < SCREEN_COUNT; i++) {
         lv_obj_t *tab = lv_tabview_add_tab(s_tabview, s_screens[i].name);
