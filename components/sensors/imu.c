@@ -3,10 +3,14 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include "board.h"
 #include "board_config.h"
+#include "driver/gpio.h"
 #include "driver_mpu6500.h"
+#include "esp_attr.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "i2c_bus.h"
@@ -196,4 +200,58 @@ esp_err_t imu_read(float accel_g[3], float gyro_dps[3], float *temp_c)
         *temp_c = (float)t / 333.87f + 21.0f;
     }
     return ESP_OK;
+}
+
+// ── Data-ready interrupt ─────────────────────────────────────────────────────
+
+static TaskHandle_t s_drdy_task;
+static portMUX_TYPE s_drdy_lock = portMUX_INITIALIZER_UNLOCKED;
+static int64_t s_drdy_us;       // 64 bit: not atomic on Xtensa, hence the lock
+
+static void IRAM_ATTR drdy_isr(void *arg)
+{
+    (void)arg;
+    const int64_t now = esp_timer_get_time();
+    portENTER_CRITICAL_ISR(&s_drdy_lock);
+    s_drdy_us = now;
+    portEXIT_CRITICAL_ISR(&s_drdy_lock);
+    BaseType_t woken = pdFALSE;
+    vTaskNotifyGiveFromISR(s_drdy_task, &woken);
+    portYIELD_FROM_ISR(woken);
+}
+
+esp_err_t imu_drdy_start(TaskHandle_t task)
+{
+    ESP_RETURN_ON_FALSE(s_dev && task, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+
+    // INT: active high, push-pull, 50 us pulse per sample. libdriver writes
+    // the inverse of `enable` into LATCH_INT_EN, so TRUE selects the pulse.
+    MPU_TRY(mpu6500_set_interrupt_level(&s_mpu, MPU6500_PIN_LEVEL_HIGH), "int level");
+    MPU_TRY(mpu6500_set_interrupt_pin_type(&s_mpu, MPU6500_PIN_TYPE_PUSH_PULL), "int pin type");
+    MPU_TRY(mpu6500_set_interrupt_latch(&s_mpu, MPU6500_BOOL_TRUE), "int pulse");
+
+    s_drdy_task = task;
+    const gpio_config_t io = {
+        .pin_bit_mask = 1ULL << IMU_INT_PIN,
+        .mode = GPIO_MODE_INPUT,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,   // an unconnected pin must not produce edges
+        .intr_type = GPIO_INTR_POSEDGE,
+    };
+    ESP_RETURN_ON_ERROR(gpio_config(&io), TAG, "int gpio");
+    // the touch driver may have installed the shared GPIO ISR service already
+    const esp_err_t err = gpio_install_isr_service(0);
+    ESP_RETURN_ON_FALSE(err == ESP_OK || err == ESP_ERR_INVALID_STATE, err, TAG, "gpio isr service");
+    ESP_RETURN_ON_ERROR(gpio_isr_handler_add(IMU_INT_PIN, drdy_isr, NULL), TAG, "int handler");
+
+    MPU_TRY(mpu6500_set_interrupt(&s_mpu, MPU6500_INTERRUPT_DATA_READY, MPU6500_BOOL_TRUE), "int enable");
+    ESP_LOGI(TAG, "data-ready interrupt on GPIO%d", IMU_INT_PIN);
+    return ESP_OK;
+}
+
+int64_t imu_drdy_time_us(void)
+{
+    portENTER_CRITICAL(&s_drdy_lock);
+    const int64_t t = s_drdy_us;
+    portEXIT_CRITICAL(&s_drdy_lock);
+    return t;
 }

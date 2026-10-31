@@ -40,6 +40,11 @@ typedef struct {
     bool imu_ok;
     bool flex_ok;
 
+    // sample clock: IMU data-ready interrupt, or the RTOS tick as a fallback
+    bool drdy;
+    int drdy_timeouts;
+    TickType_t wake;
+
     // IMU pipeline
     gyro_bias_t bias;
     mahony_t ahrs;
@@ -135,11 +140,14 @@ static void airmouse_tick(sensor_ctx_t *c, const app_sensor_state_t *st, float d
     airmouse_out_t o;
     airmouse_step(&c->am, allowed, st->flex_norm, st->gyro_dps, st->up, dt, &o);
 
-    if (o.entered && mode == APP_MODE_GESTURE) {
-        app_mode_set(APP_MODE_AIRMOUSE);
+    // `mode` may be stale by now: the transitions only apply if it is unchanged
+    if (o.entered && !app_mode_transition(APP_MODE_GESTURE, APP_MODE_AIRMOUSE)) {
+        // another mode was selected meanwhile: do not take over
+        airmouse_reset(&c->am);
+        memset(&o, 0, sizeof(o));
     }
-    if (o.exited && app_mode_get() == APP_MODE_AIRMOUSE) {
-        app_mode_set(APP_MODE_GESTURE);
+    if (o.exited) {
+        app_mode_transition(APP_MODE_AIRMOUSE, APP_MODE_GESTURE);
     }
 
     if (o.active) {
@@ -366,15 +374,43 @@ static void update_stats(sensor_ctx_t *c, app_sensor_state_t *out, int64_t now)
     }
 }
 
+// Blocks until the next sample is due and returns its timestamp. With the
+// data-ready interrupt the loop runs on the IMU's clock and the timestamp is
+// the edge time from the ISR, so I2C delays (touch reads on the shared bus) do
+// not shift it. Without an IMU, or when the edges stop, the RTOS tick paces it.
+static int64_t wait_next_sample(sensor_ctx_t *c, app_sensor_state_t *st)
+{
+    if (c->drdy) {
+        const uint32_t n = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(IMU_DRDY_TIMEOUT_MS));
+        if (n > 0) {
+            c->drdy_timeouts = 0;
+            st->imu_missed += n - 1;    // edges that came while the last iteration ran
+            return imu_drdy_time_us();
+        }
+        if (++c->drdy_timeouts < IMU_DRDY_FAIL_COUNT) {
+            return esp_timer_get_time();    // missed an edge: poll this sample
+        }
+        ESP_LOGW(TAG, "no data-ready edges on GPIO%d, pacing by the RTOS tick", IMU_INT_PIN);
+        c->drdy = false;
+        st->imu_drdy = false;
+        c->wake = xTaskGetTickCount();
+    }
+    vTaskDelayUntil(&c->wake, pdMS_TO_TICKS(PERIOD_MS));
+    return esp_timer_get_time();
+}
+
 static void sensor_task(void *arg)
 {
     sensor_ctx_t *c = arg;
     app_sensor_state_t st = { 0 };
-    TickType_t wake = xTaskGetTickCount();
+
+    c->wake = xTaskGetTickCount();
+    c->drdy = IMU_USE_DRDY && c->imu_ok && imu_drdy_start(xTaskGetCurrentTaskHandle()) == ESP_OK;
+    st.imu_drdy = c->drdy;
+    ESP_LOGI(TAG, "paced by %s", c->drdy ? "the IMU data-ready interrupt" : "the RTOS tick");
 
     for (;;) {
-        vTaskDelayUntil(&wake, pdMS_TO_TICKS(PERIOD_MS));
-        const int64_t now = esp_timer_get_time();
+        const int64_t now = wait_next_sample(c, &st);
         const float dt = c->last_us ? (float)(now - c->last_us) * 1e-6f : DT_NOMINAL;
         update_stats(c, &st, now);
         reload_settings(c);

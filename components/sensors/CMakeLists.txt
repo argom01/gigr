@@ -8,8 +8,10 @@ idf_component_register(SRCS "i2c_bus.c" "imu.c" "flex_adc.c" "flex_cal.c" "batte
                         board
                         esp_driver_i2c
                         esp_adc
-                    PRIV_REQUIRES
                         freertos
+                    PRIV_REQUIRES
+                        esp_driver_gpio
+                        esp_timer
                     )
 
 # third-party driver: keep its warnings out of the project build output

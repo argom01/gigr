@@ -100,9 +100,8 @@ void capture_stop(void)
     if (!atomic_exchange(&s_running, false)) {
         return;
     }
-    if (app_mode_get() == APP_MODE_CAPTURE) {
-        app_mode_set(APP_MODE_GESTURE);
-    }
+    // only if nobody selected another mode meanwhile
+    app_mode_transition(APP_MODE_CAPTURE, APP_MODE_GESTURE);
     esp_log_level_set("*", ESP_LOG_INFO);
     ESP_LOGI(TAG, "stopped after %lu samples", (unsigned long)s_samples);
     publish();

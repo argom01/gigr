@@ -86,6 +86,21 @@ void app_mode_set(app_mode_t mode)
     }
 }
 
+bool app_mode_transition(app_mode_t from, app_mode_t to)
+{
+    if (from >= APP_MODE_COUNT || to >= APP_MODE_COUNT) {
+        return false;
+    }
+    int expected = (int)from;
+    if (!atomic_compare_exchange_strong(&s_mode, &expected, (int)to)) {
+        return false;
+    }
+    if (from != to) {
+        ESP_LOGI(TAG, "mode: %s -> %s", s_mode_names[from], s_mode_names[to]);
+    }
+    return true;
+}
+
 const char *app_mode_name(app_mode_t mode)
 {
     return mode < APP_MODE_COUNT ? s_mode_names[mode] : "?";

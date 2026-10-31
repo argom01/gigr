@@ -61,6 +61,8 @@ typedef struct {
     float jitter_ms;            // worst period deviation over the last second
     float loop_us;              // time spent in one sensor iteration
     uint32_t imu_errors;
+    uint32_t imu_missed;        // samples overwritten before the loop read them
+    bool imu_drdy;              // paced by the data-ready interrupt (else the RTOS tick)
     float temp_c;
     uint8_t imu_cal;            // imucal_status_t
 } app_sensor_state_t;
@@ -178,7 +180,12 @@ static inline bool app_hw_ok(hw_unit_t unit) { return app_hw_get(unit) == HW_OK;
 
 // Operating mode
 app_mode_t app_mode_get(void);
+// Unconditional: for user choices (GUI), which override whatever mode is active
 void app_mode_set(app_mode_t mode);
+// Compare-and-swap: switches to `to` only if the mode is still `from`, and
+// returns whether it did. Use it for automatic transitions, so they never
+// overwrite a mode another task has just selected.
+bool app_mode_transition(app_mode_t from, app_mode_t to);
 const char *app_mode_name(app_mode_t mode);
 
 // Activity timestamp (touch, gestures...) used for backlight auto-dim

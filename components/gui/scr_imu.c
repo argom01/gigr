@@ -121,8 +121,12 @@ void scr_imu_update(const app_state_t *st)
     lv_label_set_text(s_cal, s->imu_cal < 5 ? cal_txt[s->imu_cal] : "");
     gui_set_text_color(s_cal, s->imu_cal == IMUCAL_FAILED ? GUI_COL_BAD : GUI_COL_OK);
 
-    lv_label_set_text_fmt(s_stats, "rate %.1f Hz  jitter %.2f ms  loop %.0f us  I2C errors %lu\nbias %+.2f %+.2f %+.2f dps  %s",
-                          (double)s->rate_hz, (double)s->jitter_ms, (double)s->loop_us, (unsigned long)s->imu_errors,
+    lv_label_set_text_fmt(s_stats,
+                          "rate %.1f Hz (%s)  jitter %.2f ms  loop %.0f us\n"
+                          "missed samples %lu  I2C errors %lu\n"
+                          "bias %+.2f %+.2f %+.2f dps  %s",
+                          (double)s->rate_hz, s->imu_drdy ? "drdy" : "timer", (double)s->jitter_ms,
+                          (double)s->loop_us, (unsigned long)s->imu_missed, (unsigned long)s->imu_errors,
                           (double)s->gyro_bias_dps[0], (double)s->gyro_bias_dps[1], (double)s->gyro_bias_dps[2],
                           s->still ? "still" : "moving");
 }

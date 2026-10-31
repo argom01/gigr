@@ -8,4 +8,5 @@ idf_component_register(SRCS "ble_hid.c" "hid_tx.c" "esp_hidd_prf_api.c" "hid_dev
                         appcore
                         board
                         freertos
+                        esp_timer
                     )

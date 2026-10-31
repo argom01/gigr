@@ -71,11 +71,11 @@ Modules marked pure C have no ESP-IDF includes and are covered by `test/host`.
 | Core | Task | Prio | Trigger |
 |---|---|---|---|
 | 0 | Bluetooth controller + Bluedroid | IDF | – |
-| 0 | `hid_tx` | 15 | queue / 10 ms flush |
+| 0 | `hid_tx` | 15 | queue / 10 ms flush (never sleeps on a key hold or a busy link) |
 | 0 | `touch` | 12 | GT911 INT → task notification |
 | 0 | `gui` (LVGL) | 4 | `lv_timer_handler` loop |
 | 0 | `sysmon` | 2 | 10 Hz |
-| 1 | `sensor` | 20 | 200 Hz (`vTaskDelayUntil`) |
+| 1 | `sensor` | 20 | IMU data-ready interrupt, 200 Hz (RTOS tick as fallback) |
 | 1 | `infer` | 10 | every 10th 100 Hz frame |
 | 1 | `capture` | 8 | every frame while streaming |
 
@@ -84,9 +84,15 @@ waits behind Bluedroid or LVGL rendering. The GUI is the only task that
 touches LVGL. Other tasks publish into `app_state` (short spinlock copies),
 and the GUI reads it at 20 Hz. GUI actions reach the tasks as one-shot
 requests (`app_req`) or settings changes (`settings_edit_begin/end`).
+Automatic mode changes (air-mouse pose, touchpad exit corner, end of
+streaming) use `app_mode_transition(from, to)`, a compare-and-swap, so they
+never overwrite a mode the user has just selected.
 
 ### Sensor pipeline (200 Hz)
 
+0. The MPU6500 data-ready pulse (`IMU_INT_PIN`) wakes the loop and its ISR
+   timestamps the sample, so the loop runs on the IMU's clock and a delayed
+   I2C read (touch traffic on the shared bus) does not shift the timestamp.
 1. IMU burst read → gyro bias tracking in the sensor frame (stillness gated)
    → `IMU_MOUNT_MATRIX` → levelling rotation → Mahony → orientation, *up*
    vector.

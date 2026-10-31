@@ -1,10 +1,12 @@
 #include "hid_tx.h"
 
+#include <stdatomic.h>
 #include <string.h>
 #include "app_state.h"
 #include "ble_hid.h"
 #include "board_config.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -13,8 +15,11 @@
 static const char *TAG = "hid_tx";
 
 #define FLUSH_MS        10      // mouse report rate cap (~ connection interval)
+#define FLUSH_MIN_US    ((FLUSH_MS - 1) * 1000)     // a tick-rounded 10 ms wait may end up to 1 ms early
+#define RETRY_MS        2       // poll interval while a report waits for a congested link
+#define MAX_AGE_MS      500     // a tap that waited longer is dropped instead of sent late
+#define PUBLISH_MS      500
 #define QUEUE_LEN       16
-#define CONGEST_WAIT_MS 100
 
 typedef enum {
     EVT_KEYS,
@@ -24,27 +29,50 @@ typedef enum {
 
 typedef struct {
     evt_type_t type;
-    uint8_t mods;
+    uint8_t mods;               // EVT_CLICK: the button
     uint8_t n;
     uint8_t keys[6];
     uint16_t usage;
+    int64_t t_us;               // when it was queued
 } hid_evt_t;
+
+// A tap is sent as a small state machine instead of press/sleep/release, so
+// the task never sleeps on a hold or on a congested link and mouse motion keeps
+// flowing meanwhile. Taps are sent one at a time, in queue order.
+typedef enum {
+    TAP_IDLE,
+    TAP_PRESS,                  // press report pending (link was busy)
+    TAP_HOLD,                   // pressed, waiting for release_us
+    TAP_RELEASE,                // release report pending (link was busy)
+} tap_phase_t;
+
+typedef struct {
+    tap_phase_t phase;
+    hid_evt_t evt;
+    int64_t release_us;
+} tap_t;
 
 static QueueHandle_t s_queue;
 static portMUX_TYPE s_lock = portMUX_INITIALIZER_UNLOCKED;
 static int32_t s_acc[4];            // dx, dy, wheel, pan
 static uint8_t s_buttons;
-static uint8_t s_sent_buttons;
-static uint32_t s_sent;
-static uint32_t s_dropped;
+static atomic_uint s_dropped;       // incremented by every producer
 
-static void enqueue(const hid_evt_t *e)
+// hid_tx task only
+static tap_t s_tap;
+static uint8_t s_click_buttons;     // button of the click tap being held
+static uint8_t s_sent_buttons;
+static int64_t s_flush_us;
+static uint32_t s_sent;
+
+static void enqueue(hid_evt_t *e)
 {
     if (!s_queue || !hid_device_connected()) {
         return;
     }
+    e->t_us = esp_timer_get_time();
     if (xQueueSend(s_queue, e, 0) != pdTRUE) {
-        s_dropped++;
+        atomic_fetch_add(&s_dropped, 1);
     }
 }
 
@@ -64,13 +92,13 @@ void hid_tx_key(uint8_t mods, uint8_t key)
 
 void hid_tx_consumer(uint16_t usage)
 {
-    const hid_evt_t e = { .type = EVT_CONSUMER, .usage = usage };
+    hid_evt_t e = { .type = EVT_CONSUMER, .usage = usage };
     enqueue(&e);
 }
 
 void hid_tx_mouse_click(uint8_t button)
 {
-    const hid_evt_t e = { .type = EVT_CLICK, .mods = button };
+    hid_evt_t e = { .type = EVT_CLICK, .mods = button };
     enqueue(&e);
 }
 
@@ -103,66 +131,123 @@ static int32_t take_clamped(int32_t *acc, int32_t lim)
     return v;
 }
 
-static bool wait_uncongested(void)
+// Sends the accumulated motion at most every FLUSH_MS, and a button change at
+// once. While the link is congested nothing is taken, so no motion is lost.
+static void flush_mouse(int64_t now)
 {
-    for (int t = 0; t < CONGEST_WAIT_MS && hid_device_congested(); t += 5) {
-        vTaskDelay(pdMS_TO_TICKS(5));
+    if (hid_device_congested()) {
+        return;
     }
-    return !hid_device_congested();
-}
-
-static void flush_mouse(uint8_t extra_buttons)
-{
     int32_t v[4];
-    uint8_t buttons;
     taskENTER_CRITICAL(&s_lock);
+    const uint8_t buttons = s_buttons | s_click_buttons;
+    if (buttons == s_sent_buttons && now - s_flush_us < FLUSH_MIN_US) {
+        taskEXIT_CRITICAL(&s_lock);
+        return;
+    }
     v[0] = take_clamped(&s_acc[0], 32767);
     v[1] = take_clamped(&s_acc[1], 32767);
     v[2] = take_clamped(&s_acc[2], 127);
     v[3] = take_clamped(&s_acc[3], 127);
-    buttons = s_buttons | extra_buttons;
     taskEXIT_CRITICAL(&s_lock);
 
     if (!v[0] && !v[1] && !v[2] && !v[3] && buttons == s_sent_buttons) {
         return;
     }
-    if (hid_device_congested()) {
-        // give the motion back, try again next flush
-        hid_tx_mouse_move(v[0], v[1], v[2], v[3]);
-        return;
-    }
     hid_mouse_send(buttons, (int16_t)v[0], (int16_t)v[1], (int8_t)v[2], (int8_t)v[3]);
     s_sent_buttons = buttons;
+    s_flush_us = now;
     s_sent++;
 }
 
-static void handle_event(const hid_evt_t *e)
+static bool mouse_buttons_sent(void)
 {
-    if (!wait_uncongested()) {
-        s_dropped++;
-        return;
+    taskENTER_CRITICAL(&s_lock);
+    const uint8_t buttons = s_buttons | s_click_buttons;
+    taskEXIT_CRITICAL(&s_lock);
+    return buttons == s_sent_buttons;
+}
+
+// Sends the press (down) or release report of a tap; false while the link is busy
+static bool tap_report(const hid_evt_t *e, bool down, int64_t now)
+{
+    if (e->type == EVT_CLICK) {
+        s_click_buttons = down ? e->mods : 0;
+        flush_mouse(now);
+        return mouse_buttons_sent();
     }
-    switch (e->type) {
-    case EVT_KEYS:
-        hid_keyboard_send(e->mods, e->keys, e->n);
-        vTaskDelay(pdMS_TO_TICKS(GESTURE_KEY_HOLD_MS));
-        wait_uncongested();
-        hid_keyboard_release();
-        s_sent += 2;
+    if (hid_device_congested()) {
+        return false;
+    }
+    if (e->type == EVT_KEYS) {
+        if (down) {
+            hid_keyboard_send(e->mods, e->keys, e->n);
+        } else {
+            hid_keyboard_release();
+        }
+    } else {
+        hid_consumer_send(down ? e->usage : 0);
+    }
+    s_sent++;
+    return true;
+}
+
+static void tap_step(int64_t now)
+{
+    switch (s_tap.phase) {
+    case TAP_IDLE:
         break;
-    case EVT_CONSUMER:
-        hid_consumer_send(e->usage);
-        vTaskDelay(pdMS_TO_TICKS(GESTURE_KEY_HOLD_MS));
-        wait_uncongested();
-        hid_consumer_send(0);
-        s_sent += 2;
+    case TAP_PRESS:
+        if (now - s_tap.evt.t_us > MAX_AGE_MS * 1000) {
+            // the link stayed busy too long: a late shortcut is worse than none
+            if (s_tap.evt.type == EVT_CLICK) {
+                s_click_buttons = 0;
+            }
+            s_tap.phase = TAP_IDLE;
+            atomic_fetch_add(&s_dropped, 1);
+        } else if (tap_report(&s_tap.evt, true, now)) {
+            s_tap.phase = TAP_HOLD;
+            s_tap.release_us = now + GESTURE_KEY_HOLD_MS * 1000;
+        }
         break;
-    case EVT_CLICK:
-        flush_mouse(e->mods);
-        vTaskDelay(pdMS_TO_TICKS(GESTURE_KEY_HOLD_MS));
-        flush_mouse(0);
+    case TAP_HOLD:
+        if (now < s_tap.release_us) {
+            break;
+        }
+        s_tap.phase = TAP_RELEASE;
+        /* fall through */
+    case TAP_RELEASE:
+        if (tap_report(&s_tap.evt, false, now)) {
+            s_tap.phase = TAP_IDLE;
+        }
         break;
     }
+}
+
+// How long the task may sleep before the tap or the mouse needs it again
+static TickType_t next_wait(int64_t now)
+{
+    int64_t wait_ms = FLUSH_MS;
+    if (s_tap.phase == TAP_PRESS || s_tap.phase == TAP_RELEASE) {
+        wait_ms = RETRY_MS;
+    } else if (s_tap.phase == TAP_HOLD) {
+        const int64_t left_ms = (s_tap.release_us - now + 999) / 1000;
+        wait_ms = left_ms < wait_ms ? left_ms : wait_ms;
+    }
+    const TickType_t t = pdMS_TO_TICKS(wait_ms > 0 ? wait_ms : 0);
+    return t > 0 ? t : 1;
+}
+
+static void disconnected_reset(void)
+{
+    // drop stale motion and taps so nothing jumps or fires on reconnect
+    taskENTER_CRITICAL(&s_lock);
+    memset(s_acc, 0, sizeof(s_acc));
+    taskEXIT_CRITICAL(&s_lock);
+    s_sent_buttons = 0;
+    s_click_buttons = 0;
+    s_tap.phase = TAP_IDLE;
+    xQueueReset(s_queue);
 }
 
 static void publish_state(void)
@@ -171,7 +256,7 @@ static void publish_state(void)
         .connected = hid_device_connected(),
         .advertising = hid_device_advertising(),
         .reports_sent = s_sent,
-        .reports_dropped = s_dropped,
+        .reports_dropped = atomic_load(&s_dropped),
     };
     hid_device_peer(st.peer);
     APP_STATE_PUT(ble, &st);
@@ -180,28 +265,31 @@ static void publish_state(void)
 static void hid_tx_task(void *arg)
 {
     (void)arg;
-    hid_evt_t e;
     bool was_connected = false;
-    uint32_t n = 0;
+    int64_t published_us = 0;
 
     for (;;) {
-        if (xQueueReceive(s_queue, &e, pdMS_TO_TICKS(FLUSH_MS)) == pdTRUE) {
-            handle_event(&e);
+        const TickType_t wait = next_wait(esp_timer_get_time());
+        if (s_tap.phase == TAP_IDLE) {
+            // wakes at once for a new tap, else after `wait` for the mouse
+            if (xQueueReceive(s_queue, &s_tap.evt, wait) == pdTRUE) {
+                s_tap.phase = TAP_PRESS;    // tap_step() drops it if it is already too old
+            }
+        } else {
+            vTaskDelay(wait);
         }
 
+        const int64_t now = esp_timer_get_time();
         const bool connected = hid_device_connected();
         if (connected) {
-            flush_mouse(0);
+            tap_step(now);
+            flush_mouse(now);
         } else {
-            // drop stale motion so the cursor does not jump on reconnect
-            taskENTER_CRITICAL(&s_lock);
-            memset(s_acc, 0, sizeof(s_acc));
-            taskEXIT_CRITICAL(&s_lock);
-            s_sent_buttons = 0;
-            xQueueReset(s_queue);
+            disconnected_reset();
         }
-        if (connected != was_connected || ++n % 50 == 0) {
+        if (connected != was_connected || now - published_us >= PUBLISH_MS * 1000) {
             was_connected = connected;
+            published_us = now;
             publish_state();
         }
     }

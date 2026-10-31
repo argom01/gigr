@@ -20,7 +20,7 @@
 #define LCD_SPI_HZ                  (40 * 1000 * 1000)  // try 80 MHz once the display works
 #define LCD_SWAP_XY                 1   // VERIFY ON HW: landscape needs swapped axes
 #define LCD_MIRROR_X                1   // VERIFY ON HW
-#define LCD_MIRROR_Y                0   // VERIFY ON HW
+#define LCD_MIRROR_Y                1   // VERIFY ON HW
 #define LCD_INVERT_COLOR            0   // VERIFY ON HW: white looks black -> flip
 #define LCD_BGR                     1   // VERIFY ON HW: red and blue swapped -> flip
 #define LCD_DRAW_BUF_LINES          32  // lines per partial LVGL buffer (x2 buffers, internal DMA RAM)
@@ -62,6 +62,14 @@
 #define IMU_ACCEL_RANGE_G           4
 #define IMU_GYRO_RANGE_DPS          1000
 
+// Sample pacing: the data-ready pulse on IMU_INT_PIN wakes the sensor loop, so
+// it runs on the IMU's own clock and every sample is read exactly once. After
+// IMU_DRDY_FAIL_COUNT missing edges in a row the loop falls back to the RTOS
+// tick (the IMU tab then shows "timer").
+#define IMU_USE_DRDY                1     // VERIFY ON HW: IMU INT wired to IMU_INT_PIN
+#define IMU_DRDY_TIMEOUT_MS         15    // 3 sample periods
+#define IMU_DRDY_FAIL_COUNT         20
+
 // Sensor -> body frame rotation (row-major). The IMU sits on the bottom side of
 // the PCB, i.e. rotated 180 deg about the board Y axis: x -> -x, z -> -z.
 // VERIFY ON HW on the IMU screen (axis check) and change the signs/rows if needed.
@@ -97,7 +105,7 @@
 
 // ── Battery ──────────────────────────────────────────────────────────────────
 
-#define BAT_DIVIDER_RATIO           2.0f  // VERIFY ON HW: V_bat / V_adc
+#define BAT_DIVIDER_RATIO           1.46f  // VERIFY ON HW: V_bat / V_adc
 #define BAT_CHG_ACTIVE_LOW          1     // VERIFY ON HW: TP4056-style open-drain CHRG
 #define BAT_CHG_PULLUP              1
 #define BAT_CHARGE_OFFSET_MV        120   // voltage rise while charging, subtracted before the SoC lookup
@@ -105,7 +113,7 @@
 // ── Air mouse defaults (all adjustable in the GUI) ───────────────────────────
 
 #define AM_ENTER_TH                 0.65f // ring & pinky bend to enter
-#define AM_EXIT_TH                  0.45f // either below this to exit
+#define AM_EXIT_TH                  0.55f // either below this to exit
 #define AM_POSE_MS                  150
 #define AM_SETTLE_MS                120
 #define AM_GAIN_MIN                 4.0f  // px per degree at slow speed (wrist)

@@ -52,6 +52,7 @@ MISO is not connected; the panel is driven write-only.
 |---|---|---|
 | Detected | Home: IMU OK | `IMU_I2C_ADDR` 0x68 ↔ 0x69 |
 | Loop | rate ~200 Hz, jitter < 1 ms, I2C errors 0 | bus wiring / pull-ups, `I2C_BUS_HZ` |
+| Pacing | "(drdy)" after the rate, missed samples stays 0 (or rises only rarely) | "(timer)": no data-ready edges on `IMU_INT_PIN`; check the wiring or set `IMU_USE_DRDY 0`. Missed samples rising steadily: the loop overruns 5 ms (check `loop`) |
 | Axis check, palm down | "Up: +Z" | fix `IMU_MOUNT_MATRIX` |
 | Fingertips down | "Up: -X" | row 1 of the matrix |
 | Thumb side up (right hand) | "Up: +Y" | row 2 of the matrix |
@@ -201,7 +202,7 @@ with > 500 words free. Stack sizes and priorities are in
 
 ## Not yet used
 
-* `LCD_TE_PIN` (tearing sync) and `IMU_INT_PIN` (wake-on-motion) are wired
-  but not used yet.
+* `LCD_TE_PIN` (tearing sync) is wired but not used yet. `IMU_INT_PIN` is
+  used for data-ready only, not for wake-on-motion.
 * No power saving yet (light sleep, IMU low-power): the backlight auto-dim is
   the only power feature so far.

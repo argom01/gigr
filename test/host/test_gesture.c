@@ -180,6 +180,16 @@ static void test_frame_ring(void)
     CHECK(!frame_ring_get(10, f));                              // overwritten
     CHECK(!frame_ring_get(300, f));                             // not written yet
     CHECK(frame_ring_get(299, f));
+    // the oldest intact frame is one lap minus the slot being written
+    CHECK(frame_ring_get(300 - (FRAME_RING_LEN - 1), f));
+    CHECK_NEAR(f[0], (300 - (FRAME_RING_LEN - 1)) * 100, 1e-3);
+    CHECK(!frame_ring_get(300 - FRAME_RING_LEN, f));
+    static float big[FRAME_RING_LEN * GESTURE_AXES];
+    CHECK(frame_ring_window(300, FRAME_RING_LEN - 1, big));
+    CHECK_NEAR(big[0], (300 - (FRAME_RING_LEN - 1)) * 100, 1e-3);
+    CHECK_NEAR(big[(FRAME_RING_LEN - 2) * GESTURE_AXES + 3], 299 * 100 + 3, 1e-3);
+    CHECK(!frame_ring_window(300, FRAME_RING_LEN, big));
+    CHECK(!frame_ring_window(301, 10, big));                    // end not written yet
 }
 
 int main(void)

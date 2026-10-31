@@ -5,10 +5,13 @@
 #include <stdint.h>
 #include "esp_err.h"
 
-// Single sender of all HID reports (task on core 0). Other tasks queue key
-// and consumer taps; mouse motion is accumulated and flushed at most once per
-// BLE connection interval so sub-pixel motion is never lost and the link is
-// never flooded. Nothing is queued while no host is connected.
+// Single sender of all HID reports (task on core 0). Other tasks queue key,
+// consumer and click taps; mouse motion is accumulated and flushed at most once
+// per BLE connection interval so sub-pixel motion is never lost and the link is
+// never flooded. Nothing is queued while no host is connected. The sender
+// never sleeps on a key hold or a congested link, so motion keeps flowing
+// during taps; a tap that cannot be pressed within 500 ms is dropped.
+// None of these calls block.
 
 esp_err_t hid_tx_start(void);
 

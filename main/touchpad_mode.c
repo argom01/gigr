@@ -33,7 +33,7 @@ static void on_touch(const touch_frame_t *f)
     if (out.exit) {
         ESP_LOGI(TAG, "exit corner held");
         touchpad_reset(&s_tp);
-        app_mode_set(APP_MODE_GESTURE);
+        app_mode_transition(APP_MODE_TOUCHPAD, APP_MODE_GESTURE);
     }
 }
 
