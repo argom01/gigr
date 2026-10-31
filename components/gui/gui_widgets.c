@@ -33,17 +33,31 @@ lv_obj_t *gui_section(lv_obj_t *parent, const char *title)
     lv_obj_set_style_pad_row(s, 6, 0);
     lv_obj_set_scrollable(s, false);
     if (title) {
-        lv_obj_t *t = lv_label_create(s);
-        lv_label_set_text(t, title);
+        lv_obj_t *t = gui_label(s, title);
         lv_obj_set_style_text_color(t, GUI_COL_ACCENT, 0);
     }
     return s;
 }
 
+// A label sized to its text never wraps: it grows past the container and is
+// clipped. In a column it is given the full width so long text wraps instead;
+// in a row the caller makes it grow into the space left (see gui_switch).
 lv_obj_t *gui_label(lv_obj_t *parent, const char *text)
 {
     lv_obj_t *l = lv_label_create(parent);
     lv_label_set_text(l, text ? text : "");
+    if (lv_obj_get_style_layout(parent, LV_PART_MAIN) == LV_LAYOUT_FLEX &&
+        (lv_obj_get_style_flex_flow(parent, LV_PART_MAIN) & LV_FLEX_COLUMN)) {
+        lv_obj_set_width(l, LV_PCT(100));
+    }
+    return l;
+}
+
+// Label next to a fixed-size widget in a row: takes the remaining width and wraps
+static lv_obj_t *gui_row_label(lv_obj_t *row, const char *text)
+{
+    lv_obj_t *l = gui_label(row, text);
+    lv_obj_set_flex_grow(l, 1);
     return l;
 }
 
@@ -84,7 +98,7 @@ lv_obj_t *gui_switch(lv_obj_t *parent, const char *text, bool state, gui_bool_cb
         lv_obj_add_state(sw, LV_STATE_CHECKED);
     }
     lv_obj_add_event_cb(sw, switch_event, LV_EVENT_VALUE_CHANGED, (void *)cb);
-    gui_label(row, text);
+    gui_row_label(row, text);
     return sw;
 }
 
@@ -167,7 +181,7 @@ static void dropdown_event(lv_event_t *e)
 lv_obj_t *gui_dropdown(lv_obj_t *parent, const char *text, const char *options, int selected, gui_int_cb_t cb)
 {
     lv_obj_t *row = gui_row(parent);
-    gui_label(row, text);
+    gui_row_label(row, text);
     lv_obj_t *dd = lv_dropdown_create(row);
     lv_dropdown_set_options(dd, options);
     lv_dropdown_set_selected(dd, (uint32_t)selected);
