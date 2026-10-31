@@ -42,7 +42,7 @@
 #define TOUCH_MIRROR_Y              0     // VERIFY ON HW
 #define TOUCH_INT_ACTIVE_HIGH       0     // either edge works (one per report pulse)
 #define TOUCH_RELEASE_TIMEOUT_MS    120   // no report for this long while pressed = released
-#define TOUCH_RELEASE_DEBOUNCE_MS   50    // touch must stay empty this long to count as lifted
+#define TOUCH_RELEASE_DEBOUNCE_MS   30    // touch must stay empty this long to count as lifted
 
 // Touchpad mode
 #define TOUCHPAD_GAIN               1.6f  // host pixels per touch pixel
