@@ -4,3 +4,4 @@
 /.vscode
 sdkconfig.old
 /build-host
+/plans

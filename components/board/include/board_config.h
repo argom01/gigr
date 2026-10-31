@@ -113,7 +113,7 @@
 // ── Air mouse defaults (all adjustable in the GUI) ───────────────────────────
 
 #define AM_ENTER_TH                 0.65f // ring & pinky bend to enter
-#define AM_EXIT_TH                  0.55f // either below this to exit
+#define AM_EXIT_TH                  0.40f // either below this to exit
 #define AM_POSE_MS                  150
 #define AM_SETTLE_MS                120
 #define AM_GAIN_MIN                 4.0f  // px per degree at slow speed (wrist)
