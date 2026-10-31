@@ -49,7 +49,7 @@
 #define TOUCHPAD_TAP_MAX_MS         180
 #define TOUCHPAD_TAP_MAX_MOVE_PX    10
 #define TOUCHPAD_SCROLL_DIV         12.0f // touch pixels per wheel step
-#define TOUCHPAD_EXIT_CORNER_PX     60    // top-left square, long press exits
+#define TOUCHPAD_EXIT_CORNER_PX     60    // top-right square, long press exits
 #define TOUCHPAD_EXIT_HOLD_MS       1000
 
 // ── I2C ──────────────────────────────────────────────────────────────────────

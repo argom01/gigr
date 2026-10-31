@@ -1,6 +1,7 @@
 #include "touchpad_mode.h"
 
 #include "app_state.h"
+#include "board.h"
 #include "board_config.h"
 #include "esp_log.h"
 #include "hid_tx.h"
@@ -44,6 +45,7 @@ void touchpad_mode_init(void)
         .tap_max_ms = TOUCHPAD_TAP_MAX_MS,
         .tap_max_move_px = TOUCHPAD_TAP_MAX_MOVE_PX,
         .scroll_div = TOUCHPAD_SCROLL_DIV,
+        .width = LCD_H_RES,
         .exit_corner_px = TOUCHPAD_EXIT_CORNER_PX,
         .exit_hold_ms = TOUCHPAD_EXIT_HOLD_MS,
     };

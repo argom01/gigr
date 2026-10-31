@@ -118,7 +118,7 @@ The host sees the same percentage through the BLE Battery Service.
 *Pad* tab → *Start touchpad*:
 
 * move, tap, 2-finger scroll in both directions, 2-finger tap (right click);
-* hold the top-left corner for 1 s to exit;
+* hold the top-right corner for 1 s to exit;
 * adjust the speed with the slider.
 
 Scroll direction follows the fingers ("natural"). To reverse it, flip the signs

@@ -256,4 +256,4 @@ Pad tab → *Start touchpad*:
 
 * 1 finger moves the cursor; tap = left click.
 * 2 fingers scroll; 2-finger tap = right click; 3-finger tap = middle click.
-* Hold the top-left corner for 1 s to exit.
+* Hold the top-right corner for 1 s to exit.

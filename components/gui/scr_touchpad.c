@@ -27,7 +27,7 @@ void scr_touchpad_create(lv_obj_t *tab)
     gui_label(sec, "1 finger: move    tap: left click\n"
                    "2 fingers: scroll    2-finger tap: right click\n"
                    "3-finger tap: middle click\n"
-                   "Hold the top-left corner for 1 s to exit.");
+                   "Hold the top-right corner for 1 s to exit.");
     lv_obj_t *b = gui_button(sec, LV_SYMBOL_PLAY " Start touchpad", on_start, NULL);
     lv_obj_set_width(b, LV_PCT(100));
     gui_slider(sec, "Speed", 0.5f, 4.0f, cfg.touchpad_gain, 1, on_gain);
@@ -39,7 +39,7 @@ void scr_touchpad_create(lv_obj_t *tab)
 
     lv_obj_t *corner = lv_obj_create(s_pad_scr);
     lv_obj_set_size(corner, TOUCHPAD_EXIT_CORNER_PX, TOUCHPAD_EXIT_CORNER_PX);
-    lv_obj_set_pos(corner, 0, 0);
+    lv_obj_align(corner, LV_ALIGN_TOP_RIGHT, 0, 0);
     lv_obj_set_style_radius(corner, 0, 0);
     lv_obj_set_style_bg_color(corner, lv_color_hex(0x37474f), 0);
     lv_obj_set_scrollable(corner, false);

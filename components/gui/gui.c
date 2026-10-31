@@ -1,6 +1,7 @@
 #include "gui.h"
 
 #include <stdio.h>
+#include "board_config.h"
 #include "display.h"
 #include "esp_log.h"
 #include "gui_priv.h"
@@ -44,8 +45,11 @@ static void follow_mode(const app_state_t *st)
     lv_obj_t *active = lv_screen_active();
     if (st->mode == APP_MODE_TOUCHPAD && active != pad) {
         lv_screen_load(pad);
+        // keep the status line clear of the exit square in the top-right corner
+        lv_obj_align(s_status, LV_ALIGN_TOP_RIGHT, -(TOUCHPAD_EXIT_CORNER_PX + 6), 2);
     } else if (st->mode != APP_MODE_TOUCHPAD && active == pad) {
         lv_screen_load(s_main_screen);
+        lv_obj_align(s_status, LV_ALIGN_TOP_RIGHT, -6, 2);
     }
     if (active == pad) {
         scr_touchpad_pad_update(st);

@@ -84,8 +84,8 @@ void touchpad_process(touchpad_t *tp, int n, const uint16_t *x, const uint16_t *
     tp->last_y = cy;
     tp->travel += fabsf(dx) + fabsf(dy);
 
-    // exit corner: one finger resting in the top-left square
-    if (n == 1 && tp->start_x < tp->cfg.exit_corner_px && tp->start_y < tp->cfg.exit_corner_px &&
+    // exit corner: one finger resting in the top-right square (the GUI tab bar is on the left)
+    if (n == 1 && tp->start_x >= tp->cfg.width - tp->cfg.exit_corner_px && tp->start_y < tp->cfg.exit_corner_px &&
         tp->travel <= tp->cfg.tap_max_move_px) {
         if (!tp->exit_sent && (t_us - tp->t_start_us) / 1000 >= tp->cfg.exit_hold_ms) {
             tp->exit_sent = true;

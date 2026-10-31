@@ -3,7 +3,7 @@
 
 static const touchpad_cfg_t CFG = {
     .gain = 2.0f, .tap_max_ms = 180, .tap_max_move_px = 10, .scroll_div = 10.0f,
-    .exit_corner_px = 60, .exit_hold_ms = 1000,
+    .width = 480, .exit_corner_px = 60, .exit_hold_ms = 1000,
 };
 
 #define MS(x) ((int64_t)(x) * 1000)
@@ -83,13 +83,21 @@ static void test_exit_corner(void)
     touchpad_init(&tp, &CFG);
     bool exited = false;
     for (int t = 0; t <= 1200; t += 20) {
-        feed1(&tp, 20, 20, MS(t), &o);
+        feed1(&tp, 460, 20, MS(t), &o);
         exited |= o.exit;
         CHECK(o.dx == 0 && o.dy == 0);
     }
     CHECK(exited);
     touchpad_process(&tp, 0, NULL, NULL, MS(1250), &o);
     CHECK(o.click == 0);
+
+    // the top-left corner is ordinary pad area now
+    exited = false;
+    for (int t = 0; t <= 1200; t += 20) {
+        feed1(&tp, 20, 20, MS(2000 + t), &o);
+        exited |= o.exit;
+    }
+    CHECK(!exited);
 }
 
 int main(void)

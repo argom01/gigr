@@ -8,14 +8,15 @@
 //   1 finger drag      -> pointer motion
 //   1 / 2 / 3 finger tap -> left / right / middle click
 //   2 finger drag      -> vertical wheel + horizontal pan ("natural" direction)
-//   hold the exit corner -> leave touchpad mode
+//   hold the exit corner (top-right) -> leave touchpad mode
 
 typedef struct {
     float gain;             // host pixels per touch pixel
     int tap_max_ms;
     int tap_max_move_px;
     float scroll_div;       // touch pixels per wheel step
-    int exit_corner_px;     // top-left square
+    int width;              // touch area width (the exit corner is its top-right square)
+    int exit_corner_px;     // side of the exit square
     int exit_hold_ms;
 } touchpad_cfg_t;
 
